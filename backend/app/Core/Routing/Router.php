@@ -1,5 +1,4 @@
 <?php
-
 declare(strict_types=1);
 
 namespace App\Core\Routing;
@@ -9,55 +8,63 @@ use App\Core\Http\Response;
 
 final class Router
 {
-    /** @var array<string, array<string, callable>> */
-    private array $routes = [];
-
-    public function get(string $path, callable $handler): void
-    {
-        $this->map('GET', $path, $handler);
+    public function __construct(
+        private array $routes
+    ) {
     }
 
-    public function post(string $path, callable $handler): void
+    public function dispatch(Request $request): void
     {
-        $this->map('POST', $path, $handler);
-    }
+        foreach ($this->routes as [$method, $pattern, $handler]) {
+            if (strtoupper($method) !== $request->method()) {
+                continue;
+            }
 
-    public function put(string $path, callable $handler): void
-    {
-        $this->map('PUT', $path, $handler);
-    }
+            $params = $this->match($pattern, $request->path());
+            if ($params === null) {
+                continue;
+            }
 
-    public function delete(string $path, callable $handler): void
-    {
-        $this->map('DELETE', $path, $handler);
-    }
+            $resolvedRequest = $request->withRouteParams($params);
+            $response = $handler($resolvedRequest);
 
-    private function map(string $method, string $path, callable $handler): void
-    {
-        $this->routes[$method][$path] = $handler;
-    }
+            if ($response !== null) {
+                Response::ok($response);
+            }
 
-    public function dispatch(): void
-    {
-        $request = new Request();
-
-        if ($request->method() === 'OPTIONS') {
-            Response::json(['ok' => true], 200);
             return;
         }
 
-        $handler = $this->routes[$request->method()][$request->uri()] ?? null;
+        Response::fail('ROUTE_NOT_FOUND', 'Ruta no encontrada', 404);
+    }
 
-        if (!$handler) {
-            Response::json([
-                'ok' => false,
-                'message' => 'Route not found',
-                'path' => $request->uri(),
-                'method' => $request->method(),
-            ], 404);
-            return;
+    private function match(string $pattern, string $path): ?array
+    {
+        if ($pattern === '/' && $path === '/') {
+            return [];
         }
 
-        $handler($request);
+        $patternSegments = explode('/', trim($pattern, '/'));
+        $pathSegments = explode('/', trim($path, '/'));
+
+        if (count($patternSegments) !== count($pathSegments)) {
+            return null;
+        }
+
+        $params = [];
+        foreach ($patternSegments as $index => $segment) {
+            $candidate = $pathSegments[$index] ?? '';
+
+            if (preg_match('/^\{([a-zA-Z_][a-zA-Z0-9_]*)\}$/', $segment, $matches) === 1) {
+                $params[$matches[1]] = $candidate;
+                continue;
+            }
+
+            if ($segment !== $candidate) {
+                return null;
+            }
+        }
+
+        return $params;
     }
 }

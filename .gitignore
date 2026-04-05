@@ -6,3 +6,5 @@ vendor/
 .vscode/
 .DS_Store
 Thumbs.db
+backend_legacy_imported/
+frontend/.tmp_figma_import/

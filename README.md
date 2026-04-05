@@ -1,28 +1,33 @@
 # jds-Expense-Tracker
 
-Starter structure for an expense tracker application built with **PHP** (backend) and **Angular** (frontend).
+Expense tracker web application built with **PHP** on the backend and **Angular** on the frontend.
 
-## Included
+The product direction is based on a Figma reference and a sample implementation originally exported in React, but this repository will be implemented with its own architecture in **Angular + Tailwind** and **PHP + MySQL**.
 
-- `backend/`: lightweight PHP API starter with routing, request/response helpers, PDO database connection, and sample expense endpoints.
-- `frontend/`: Angular starter with standalone bootstrap, routing, dashboard, transactions page, and API service.
-- `database/`: starter SQL schema for users, categories, and transactions.
+## Current Direction
 
-## Quick start
+- `backend/`: PHP API foundation using custom bootstrap, HTTP helpers, routing, PDO connection utilities, and reusable query helpers.
+- `frontend/`: workspace that will host the Angular application and Tailwind-based UI implementation.
+- `database/`: SQL assets for the expense tracker domain.
+- `docs/`: project notes and supporting documentation.
 
-### Backend
-1. Copy `backend/.env.example` to `backend/.env`
-2. Update database credentials
-3. Point your local server to `backend/public`
-4. Import `backend/database/schema.sql`
+## Goal
 
-### Frontend
-1. Open a terminal inside `frontend`
-2. Run `npm install`
-3. Run `npm start`
+Build a maintainable expense tracker that supports:
 
-## Notes
+- authentication
+- transaction management
+- categories
+- monthly summaries
+- dashboard metrics
+- responsive UI
 
-- This is a clean starter scaffold, not a finished product.
-- Adjust Angular dependency versions if you want to match your local CLI version.
-- The API base URL is configured in `frontend/src/app/core/services/api.config.ts`.
+## Backend Notes
+
+The backend currently preserves reusable infrastructure from a previous PHP project, but the legacy routing and module surface are being separated from the active expense-tracker API.
+
+Use `backend/.env.example` as the reference for local environment setup.
+
+## Frontend Notes
+
+The frontend is being normalized under the main repository so future Angular work, Tailwind integration, and PR review happen from a single global git history.

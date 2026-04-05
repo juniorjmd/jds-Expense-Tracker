@@ -1,13 +1,21 @@
 {
-  "name": "jose/jds-expense-tracker-backend",
-  "description": "PHP backend starter for jds-Expense-Tracker",
-  "type": "project",
-  "autoload": {
-    "psr-4": {
-      "App\\\\": "app/"
+    "name": "sofdla/jds-backend",
+    "description": "backend pos",
+    "type": "project",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+             "App\\": "app/"
+        }
+    },
+    "authors": [
+        {
+            "name": "jose dominguez",
+            "email": "juniorjmd@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "vlucas/phpdotenv": "^5.6"
     }
-  },
-  "require": {
-    "php": ">=8.1"
-  }
 }

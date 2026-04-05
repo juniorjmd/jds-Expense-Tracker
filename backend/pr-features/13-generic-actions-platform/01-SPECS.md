@@ -1,0 +1,25 @@
+# Specs
+
+- Este PR agrupa el cierre transversal de la plataforma legacy compartida:
+  - `DATABASE_GENERIC_CONTRUCT_SELECT`
+  - `DATABASE_GENERIC_CONTRUCT_SELECT_BY_USER_LOGGED`
+  - `DATABASE_GENERIC_CONTRUCT_INSERT`
+  - `DATABASE_GENERIC_CONTRUCT_UPDATE`
+  - `DATABASE_GENERIC_CONTRUCT_DELETE`
+  - `DATABASE_GENERIC_CONTRUCT_PROCEDURE`
+  - `DATABASE_GENERIC_CONTRUCT_INSERT_SELECT`
+  - `e06c06e7e4ef58bdb0kieujfñ541b3017fdd35473`
+  - `INSERT_PERFIL_USUARIO`
+  - `mnbvcxzxcxcxasdfewq15616`
+  - `qwer12356yhn7ujm8ik`
+  - `BUSCAR_STOCK_LOCATION`
+- El backend mantiene un unico contrato de respuesta para toda esta familia:
+  - `ok`
+  - `data`
+  - `error`
+- El frontend debe dejar de reconstruir wrappers legacy (`error: 'ok'`, `numdata`, `query`) para estas acciones compartidas.
+- La validacion de cierre del frente generico debe incluir:
+  - tests unitarios backend
+  - specs frontend de servicios compartidos
+  - build Angular
+  - pruebas reales contra `http://localhost/jds_back_2026/api/`
