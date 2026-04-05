@@ -1,0 +1,13 @@
+{
+  "name": "jose/jds-expense-tracker-backend",
+  "description": "PHP backend starter for jds-Expense-Tracker",
+  "type": "project",
+  "autoload": {
+    "psr-4": {
+      "App\\\\": "app/"
+    }
+  },
+  "require": {
+    "php": ">=8.1"
+  }
+}
