@@ -2,6 +2,13 @@ export interface Company {
   id: string;
   name: string;
   description?: string;
+  planCode?: string;
+  planName?: string;
+  subscriptionStatus?: string;
+  currencyCode?: string;
+  timezone?: string;
+  dateFormat?: string;
+  brandingName?: string;
   createdAt: string;
   establishmentsCount?: number;
   usersCount?: number;
@@ -18,12 +25,38 @@ export interface CompanyAccessLog {
   createdAt: string;
 }
 
+export interface ActivityLog {
+  id: string;
+  companyId?: string | null;
+  establishmentId?: string | null;
+  actorUserId: string;
+  actorName: string;
+  actorEmail: string;
+  entityType: string;
+  entityId: string;
+  action: string;
+  note?: string;
+  createdAt: string;
+}
+
 export interface CompanyOverview {
   company: Company;
+  settings?: {
+    currencyCode: string;
+    timezone: string;
+    dateFormat: string;
+    brandingName?: string;
+  };
+  subscription?: {
+    status: string;
+    planCode: string;
+    planName: string;
+  };
   summary: MonthlySummary;
   establishments: Establishment[];
   users: User[];
   accessLogs: CompanyAccessLog[];
+  activityLogs: ActivityLog[];
 }
 
 export interface Establishment {

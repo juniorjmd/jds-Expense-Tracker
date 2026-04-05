@@ -169,6 +169,23 @@ final class UserRepository extends BaseRepository
         return $this->execute('DELETE FROM users WHERE id = :id', [':id' => $id]);
     }
 
+    public function countAdminsByCompany(int $companyId, ?int $excludeId = null): int
+    {
+        $sql = 'SELECT COUNT(*) AS total
+                FROM users
+                WHERE company_id = :company_id AND role = "administrador"';
+        $params = [':company_id' => $companyId];
+
+        if ($excludeId !== null) {
+            $sql .= ' AND id <> :exclude_id';
+            $params[':exclude_id'] = $excludeId;
+        }
+
+        $row = $this->fetchOne($sql, $params);
+
+        return (int) ($row['total'] ?? 0);
+    }
+
     private function syncAssignments(int $userId, array $establishmentIds): void
     {
         $this->execute('DELETE FROM user_establishments WHERE user_id = :user_id', [':user_id' => $userId]);

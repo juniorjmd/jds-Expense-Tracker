@@ -12,7 +12,8 @@ final class ExpenseTemplateService
     public function __construct(
         private readonly ExpenseTemplateRepository $repository = new ExpenseTemplateRepository(),
         private readonly TransactionService $transactionService = new TransactionService(),
-        private readonly EstablishmentRepository $establishmentRepository = new EstablishmentRepository()
+        private readonly EstablishmentRepository $establishmentRepository = new EstablishmentRepository(),
+        private readonly ActivityLogService $activityLogs = new ActivityLogService()
     ) {
     }
 
@@ -37,13 +38,29 @@ final class ExpenseTemplateService
             throw new InvalidArgumentException('El monto debe ser mayor a cero.');
         }
 
-        return $this->mapTemplate($this->repository->create([
+        $created = $this->repository->create([
             'company_id' => $companyId,
             'establishment_id' => $establishmentId,
             'category' => $category,
             'description' => trim((string) ($payload['description'] ?? '')),
             'amount' => round($amount, 2),
-        ]));
+        ]);
+
+        $this->activityLogs->log(
+            $actor,
+            'expense_template',
+            (string) $created['id'],
+            'expense_template_created',
+            (int) $created['company_id'],
+            (int) $created['establishment_id'],
+            'Gasto predeterminado creado.',
+            [
+                'category' => (string) $created['category'],
+                'amount' => (float) $created['amount'],
+            ]
+        );
+
+        return $this->mapTemplate($created);
     }
 
     public function apply(array $actor, int $id): array
@@ -57,7 +74,7 @@ final class ExpenseTemplateService
             throw new InvalidArgumentException('No tienes acceso a este gasto predeterminado.');
         }
 
-        return $this->transactionService->create($actor, (int) $template['establishment_id'], [
+        $applied = $this->transactionService->create($actor, (int) $template['establishment_id'], [
             'type' => 'expense',
             'category' => (string) $template['category'],
             'description' => (string) ($template['description'] ?? ''),
@@ -65,6 +82,22 @@ final class ExpenseTemplateService
             'transaction_date' => date('Y-m-d'),
             'from_template' => true,
         ]);
+
+        $this->activityLogs->log(
+            $actor,
+            'expense_template',
+            (string) $template['id'],
+            'expense_template_applied',
+            (int) ($template['company_id'] ?? 0),
+            (int) ($template['establishment_id'] ?? 0),
+            'Gasto predeterminado aplicado como transaccion.',
+            [
+                'transactionId' => $applied['id'] ?? null,
+                'amount' => (float) ($template['amount'] ?? 0),
+            ]
+        );
+
+        return $applied;
     }
 
     public function delete(array $actor, int $id): bool
@@ -77,6 +110,20 @@ final class ExpenseTemplateService
         if (($actor['role'] ?? '') !== 'superusuario' && (int) ($template['company_id'] ?? 0) !== (int) ($actor['company_id'] ?? 0)) {
             return false;
         }
+
+        $this->activityLogs->log(
+            $actor,
+            'expense_template',
+            (string) $template['id'],
+            'expense_template_deleted',
+            (int) ($template['company_id'] ?? 0),
+            (int) ($template['establishment_id'] ?? 0),
+            'Gasto predeterminado eliminado.',
+            [
+                'category' => (string) ($template['category'] ?? ''),
+                'amount' => (float) ($template['amount'] ?? 0),
+            ]
+        );
 
         return $this->repository->delete($id);
     }

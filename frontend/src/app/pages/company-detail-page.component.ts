@@ -48,6 +48,30 @@ import { SummaryService } from '../services/summary.service';
 
       <section class="panel" *ngIf="overview">
         <div class="panel-head">
+          <h2>Contexto SaaS</h2>
+          <p class="muted">Base inicial para planes, configuracion y operacion por empresa.</p>
+        </div>
+        <div class="context-grid">
+          <article class="context-card">
+            <span>Plan actual</span>
+            <strong>{{ overview.subscription?.planName || overview.company.planName || 'Plan base' }}</strong>
+            <small>{{ overview.subscription?.status || overview.company.subscriptionStatus || 'Sin estado' }}</small>
+          </article>
+          <article class="context-card">
+            <span>Moneda</span>
+            <strong>{{ overview.settings?.currencyCode || overview.company.currencyCode || 'COP' }}</strong>
+            <small>{{ overview.settings?.timezone || overview.company.timezone || 'America/Bogota' }}</small>
+          </article>
+          <article class="context-card">
+            <span>Branding</span>
+            <strong>{{ overview.settings?.brandingName || overview.company.brandingName || overview.company.name }}</strong>
+            <small>{{ overview.settings?.dateFormat || overview.company.dateFormat || 'Y-m-d' }}</small>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel" *ngIf="overview">
+        <div class="panel-head">
           <h2>Establecimientos de la empresa</h2>
           <p class="muted">Desde aqui decides si quieres profundizar en el detalle de una sucursal especifica.</p>
         </div>
@@ -100,6 +124,23 @@ import { SummaryService } from '../services/summary.service';
           </div>
         </section>
       </section>
+
+      <section class="panel" *ngIf="overview">
+        <div class="panel-head">
+          <h2>Actividad critica reciente</h2>
+          <p class="muted">Creaciones, eliminaciones y operaciones sensibles dentro de esta empresa.</p>
+        </div>
+        <div class="list-grid">
+          <article class="row-card" *ngFor="let log of overview.activityLogs">
+            <div>
+              <strong>{{ log.actorName }}</strong>
+              <p class="muted">{{ log.note || log.action }}</p>
+              <p class="muted">{{ log.entityType }} #{{ log.entityId }}</p>
+            </div>
+            <span class="badge">{{ formatDate(log.createdAt) }}</span>
+          </article>
+        </div>
+      </section>
     </div>
 
     <ng-template #blocked>
@@ -123,6 +164,10 @@ import { SummaryService } from '../services/summary.service';
     .metric strong { font-size: 28px; letter-spacing: -.04em; }
     .panel { padding: 24px; display: grid; gap: 18px; background: var(--surface-strong); }
     .panel-head { display: grid; gap: 6px; }
+    .context-grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); }
+    .context-card { padding:18px; border-radius:22px; background:linear-gradient(135deg, rgba(15,23,42,.04), rgba(244,162,97,.10)); border:1px solid rgba(71,85,105,.10); display:grid; gap:6px; }
+    .context-card span, .context-card small { color:var(--muted); }
+    .context-card strong { font-size:22px; letter-spacing:-.03em; color:var(--ink); }
     .cards { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
     .card, .row-card { padding: 20px; display: grid; gap: 14px; background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(241,245,249,.90)); }
     .stats-line { display: flex; justify-content: space-between; gap: 14px; color: #475569; }

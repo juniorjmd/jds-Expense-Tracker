@@ -11,7 +11,8 @@ final class TransactionService
 {
     public function __construct(
         private readonly TransactionRepository $repository = new TransactionRepository(),
-        private readonly EstablishmentRepository $establishmentRepository = new EstablishmentRepository()
+        private readonly EstablishmentRepository $establishmentRepository = new EstablishmentRepository(),
+        private readonly ActivityLogService $activityLogs = new ActivityLogService()
     ) {
     }
 
@@ -57,6 +58,21 @@ final class TransactionService
             'from_template' => !empty($payload['from_template']),
         ]);
 
+        $this->activityLogs->log(
+            $actor,
+            'transaction',
+            (string) $created['id'],
+            'transaction_created',
+            (int) $created['company_id'],
+            (int) $created['establishment_id'],
+            'Movimiento registrado en el establecimiento.',
+            [
+                'type' => (string) $created['type'],
+                'amount' => (float) $created['amount'],
+                'category' => (string) $created['category'],
+            ]
+        );
+
         return $this->mapTransaction($created);
     }
 
@@ -70,6 +86,21 @@ final class TransactionService
         if (($actor['role'] ?? '') !== 'superusuario' && (int) ($transaction['company_id'] ?? 0) !== (int) ($actor['company_id'] ?? 0)) {
             return false;
         }
+
+        $this->activityLogs->log(
+            $actor,
+            'transaction',
+            (string) $transaction['id'],
+            'transaction_deleted',
+            (int) ($transaction['company_id'] ?? 0),
+            (int) ($transaction['establishment_id'] ?? 0),
+            'Movimiento eliminado.',
+            [
+                'type' => (string) ($transaction['type'] ?? ''),
+                'amount' => (float) ($transaction['amount'] ?? 0),
+                'category' => (string) ($transaction['category'] ?? ''),
+            ]
+        );
 
         return $this->repository->delete($id);
     }

@@ -14,8 +14,12 @@
 - the `superusuario` does not see cross-company operational detail by default on the dashboard
 - to inspect another company's operational detail, the `superusuario` must enter that company explicitly
 - each explicit company inspection by the `superusuario` creates an audit record
+- each company starts with plan/subscription/settings defaults in the shared database
+- a user cannot delete their own account
+- the last `administrador` of a company cannot be deleted
 - the Angular frontend exposes company maintenance and company-detail pages
 - the main views share the updated visual system and controlled card layouts
 - `php backend/scripts/apply_schema.php` completes successfully
 - key new backend files pass `php -l`
+- `php backend/tests/Integration/ExpenseTrackerSaaSTest.php` completes successfully
 - `npm run build` completes successfully

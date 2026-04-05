@@ -8,9 +8,14 @@
 
 ## Backend Multi-Company Layer
 
+### Backend
 - expanded `backend/database/schema.sql` to support:
   - `companies`
   - `company_access_logs`
+  - `activity_logs`
+  - `plans`
+  - `company_subscriptions`
+  - `company_settings`
   - `users.company_id`
   - `establishments.company_id`
   - `expense_templates.company_id`
@@ -24,14 +29,23 @@
   - `backend/app/Controllers/CompanyController.php`
   - `backend/app/Services/CompanyService.php`
   - `backend/app/Services/CurrentUserService.php`
+  - `backend/app/Services/ActivityLogService.php`
   - `backend/app/Repositories/CompanyRepository.php`
   - `backend/app/Repositories/CompanyAccessLogRepository.php`
+  - `backend/app/Repositories/ActivityLogRepository.php`
+  - `backend/app/Repositories/PlanRepository.php`
+  - `backend/app/Repositories/CompanySubscriptionRepository.php`
+  - `backend/app/Repositories/CompanySettingRepository.php`
 - updated existing user, establishment, transaction, expense-template, and summary flows so they scope by company
 - changed summary behavior so the `superusuario` no longer gets cross-company operational detail by default
 - added explicit `GET /api/companies/{id}` overview flow and audit logging for that access
+- added critical activity logging for company creation and sensitive operational actions
+- introduced the first SaaS-ready persistence layer for plans, company subscription state, and company settings
+- hardened user management rules to block self-deletion and removal of the last company administrator
 
 ## Frontend Angular Layer
 
+### Frontend
 - extended routing with:
   - `/empresas`
   - `/empresas/:id`
@@ -43,17 +57,21 @@
   - users page for company-aware management
   - summary page restrictions
   - models and storage services for companies and company overview data
+  - company views to surface plan, status, configuration, and recent activity context
+  - establishment detail view so it matches the current visual language instead of the older flatter layout
 
 ## Visual Layer
 
 - refreshed `frontend/src/styles.css` with a more premium SaaS palette and deeper background treatment
 - unified panel, card, badge, and header language across the main views
 - corrected list/card layouts so single items do not render as stretched horizontal bands
+- aligned login and establishment detail with the same SaaS visual system used by dashboard and company maintenance
 
 ## Validation
 
 - applied schema with `php backend/scripts/apply_schema.php`
 - validated syntax with `php -l` in the key new backend classes
+- added and executed `php backend/tests/Integration/ExpenseTrackerSaaSTest.php`
 - verified:
   - `GET /api/companies/1` returns company overview and creates an audit record
   - `GET /api/summary` as `superusuario` returns `403` without explicit company context

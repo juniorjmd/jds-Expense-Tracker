@@ -9,7 +9,8 @@ tests/
 │   └── AuthServiceTest.php        # Lógica del AuthService
 │
 ├── Integration/                   # Pruebas de integración (requieren BD, servicios externos)
-│   └── DatabaseConnectionTest.php # Conexión y validación de BD
+│   ├── DatabaseConnectionTest.php # Conexión y validación de BD
+│   └── ExpenseTrackerSaaSTest.php # Flujo multiempresa, auditoría y restricciones SaaS
 │
 ├── README.md                      # Este archivo
 └── run-tests.php                  # Script para ejecutar todos los tests
@@ -31,6 +32,7 @@ php Unit/AuthServiceTest.php
 ### Solo tests de integración
 ```bash
 php Integration/DatabaseConnectionTest.php
+php Integration/ExpenseTrackerSaaSTest.php
 ```
 
 ## Descripción de cada test
@@ -53,6 +55,15 @@ php Integration/DatabaseConnectionTest.php
 ✓ Acceso a vistas  
 ✓ Existencia de procedimientos almacenados  
 **Requisitos**: Conectividad a mysql.us.stackcp.com:42363  
+
+### Integration/ExpenseTrackerSaaSTest.php
+✓ Bloqueo del resumen global del superusuario  
+✓ Creación de empresa con plan/configuración por defecto  
+✓ Trazabilidad al entrar al detalle de empresa  
+✓ Auditoría de actividad crítica  
+✓ Aislamiento de usuarios por empresa  
+✓ Protección contra autoeliminación y eliminación del último administrador  
+**Requisitos**: esquema actual del Expense Tracker aplicado en la BD local
 
 ## Agregar nuevas pruebas
 

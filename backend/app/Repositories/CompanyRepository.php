@@ -11,12 +11,20 @@ final class CompanyRepository extends BaseRepository
     {
         return $this->fetchAll(
             'SELECT c.id, c.name, c.description, c.created_at,
+                    cs.status AS subscription_status,
+                    p.code AS plan_code,
+                    p.name AS plan_name,
+                    cfg.currency_code,
+                    cfg.timezone,
                     COUNT(DISTINCT e.id) AS establishments_count,
                     COUNT(DISTINCT u.id) AS users_count
              FROM companies c
+             LEFT JOIN company_subscriptions cs ON cs.company_id = c.id
+             LEFT JOIN plans p ON p.id = cs.plan_id
+             LEFT JOIN company_settings cfg ON cfg.company_id = c.id
              LEFT JOIN establishments e ON e.company_id = c.id
              LEFT JOIN users u ON u.company_id = c.id AND u.role <> "superusuario"
-             GROUP BY c.id, c.name, c.description, c.created_at
+             GROUP BY c.id, c.name, c.description, c.created_at, cs.status, p.code, p.name, cfg.currency_code, cfg.timezone
              ORDER BY c.created_at DESC, c.id DESC'
         );
     }
@@ -33,13 +41,23 @@ final class CompanyRepository extends BaseRepository
     {
         return $this->fetchOne(
             'SELECT c.id, c.name, c.description, c.created_at,
+                    cs.status AS subscription_status,
+                    p.code AS plan_code,
+                    p.name AS plan_name,
+                    cfg.currency_code,
+                    cfg.timezone,
+                    cfg.date_format,
+                    cfg.branding_name,
                     COUNT(DISTINCT e.id) AS establishments_count,
                     COUNT(DISTINCT u.id) AS users_count
              FROM companies c
+             LEFT JOIN company_subscriptions cs ON cs.company_id = c.id
+             LEFT JOIN plans p ON p.id = cs.plan_id
+             LEFT JOIN company_settings cfg ON cfg.company_id = c.id
              LEFT JOIN establishments e ON e.company_id = c.id
              LEFT JOIN users u ON u.company_id = c.id AND u.role <> "superusuario"
              WHERE c.id = :id
-             GROUP BY c.id, c.name, c.description, c.created_at',
+             GROUP BY c.id, c.name, c.description, c.created_at, cs.status, p.code, p.name, cfg.currency_code, cfg.timezone, cfg.date_format, cfg.branding_name',
             [':id' => $id]
         );
     }

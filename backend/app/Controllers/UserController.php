@@ -46,10 +46,14 @@ final class UserController
 
     public function destroy(Request $request): void
     {
-        if (!$this->service->delete($this->currentUser->require($request), (int) $request->route('id', 0))) {
-            Response::fail('USER_NOT_FOUND', 'El usuario no existe.', 404);
-        }
+        try {
+            if (!$this->service->delete($this->currentUser->require($request), (int) $request->route('id', 0))) {
+                Response::fail('USER_NOT_FOUND', 'El usuario no existe.', 404);
+            }
 
-        Response::ok(['deleted' => true]);
+            Response::ok(['deleted' => true]);
+        } catch (InvalidArgumentException $exception) {
+            Response::fail('VALIDATION_ERROR', $exception->getMessage(), 422);
+        }
     }
 }

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Repositories\EstablishmentRepository;
 use App\Repositories\UserRepository;
 use InvalidArgumentException;
 
@@ -10,7 +11,9 @@ final class UserService
 {
     public function __construct(
         private readonly UserRepository $repository = new UserRepository(),
-        private readonly AuthService $authService = new AuthService()
+        private readonly AuthService $authService = new AuthService(),
+        private readonly EstablishmentRepository $establishments = new EstablishmentRepository(),
+        private readonly ActivityLogService $activityLogs = new ActivityLogService()
     ) {
     }
 
@@ -21,7 +24,24 @@ final class UserService
 
     public function create(array $actor, array $payload): array
     {
-        return $this->authService->mapUser($this->repository->create($this->normalizePayload($actor, $payload)));
+        $normalized = $this->normalizePayload($actor, $payload);
+        $created = $this->repository->create($normalized);
+
+        $this->activityLogs->log(
+            $actor,
+            'user',
+            (string) $created['id'],
+            'user_created',
+            (int) $created['company_id'],
+            null,
+            'Usuario creado desde mantenimiento.',
+            [
+                'email' => (string) $created['email'],
+                'role' => (string) $created['role'],
+            ]
+        );
+
+        return $this->authService->mapUser($created);
     }
 
     public function update(array $actor, int $id, array $payload): array
@@ -33,7 +53,24 @@ final class UserService
 
         $this->assertAccess($actor, $existing);
 
-        return $this->authService->mapUser($this->repository->update($id, $this->normalizePayload($actor, $payload, $id)));
+        $normalized = $this->normalizePayload($actor, $payload, $id);
+        $updated = $this->repository->update($id, $normalized);
+
+        $this->activityLogs->log(
+            $actor,
+            'user',
+            (string) $updated['id'],
+            'user_updated',
+            (int) $updated['company_id'],
+            null,
+            'Usuario actualizado desde mantenimiento.',
+            [
+                'email' => (string) $updated['email'],
+                'role' => (string) $updated['role'],
+            ]
+        );
+
+        return $this->authService->mapUser($updated);
     }
 
     public function delete(array $actor, int $id): bool
@@ -44,6 +81,29 @@ final class UserService
         }
 
         $this->assertAccess($actor, $existing);
+        if ((int) $existing['id'] === (int) $actor['id']) {
+            throw new InvalidArgumentException('No puedes eliminar tu propio usuario.');
+        }
+
+        if (($existing['role'] ?? '') === 'administrador'
+            && $this->repository->countAdminsByCompany((int) ($existing['company_id'] ?? 0), $id) === 0
+        ) {
+            throw new InvalidArgumentException('Debe permanecer al menos un administrador por empresa.');
+        }
+
+        $this->activityLogs->log(
+            $actor,
+            'user',
+            (string) $existing['id'],
+            'user_deleted',
+            (int) ($existing['company_id'] ?? 0),
+            null,
+            'Usuario eliminado desde mantenimiento.',
+            [
+                'email' => (string) ($existing['email'] ?? ''),
+                'role' => (string) ($existing['role'] ?? ''),
+            ]
+        );
 
         return $this->repository->delete($id);
     }
@@ -79,6 +139,13 @@ final class UserService
 
         if ($id === null && $password === '') {
             throw new InvalidArgumentException('La contrasena es obligatoria.');
+        }
+
+        foreach ($assigned as $establishmentId) {
+            $establishmentCompanyId = $this->establishments->companyIdByEstablishment((int) $establishmentId);
+            if ($establishmentCompanyId === null || $establishmentCompanyId !== $companyId) {
+                throw new InvalidArgumentException('Los establecimientos asignados deben pertenecer a la misma empresa del usuario.');
+            }
         }
 
         return [

@@ -6,7 +6,10 @@ namespace App\Services;
 use App\Core\Database\Connection;
 use App\Repositories\CompanyAccessLogRepository;
 use App\Repositories\CompanyRepository;
+use App\Repositories\CompanySettingRepository;
+use App\Repositories\CompanySubscriptionRepository;
 use App\Repositories\EstablishmentRepository;
+use App\Repositories\PlanRepository;
 use App\Repositories\TransactionRepository;
 use App\Repositories\UserRepository;
 use InvalidArgumentException;
@@ -17,10 +20,14 @@ final class CompanyService
     public function __construct(
         private readonly CompanyRepository $companies = new CompanyRepository(),
         private readonly CompanyAccessLogRepository $accessLogs = new CompanyAccessLogRepository(),
+        private readonly CompanySettingRepository $settings = new CompanySettingRepository(),
+        private readonly CompanySubscriptionRepository $subscriptions = new CompanySubscriptionRepository(),
         private readonly EstablishmentRepository $establishments = new EstablishmentRepository(),
+        private readonly PlanRepository $plans = new PlanRepository(),
         private readonly TransactionRepository $transactions = new TransactionRepository(),
         private readonly UserRepository $users = new UserRepository(),
-        private readonly AuthService $auth = new AuthService()
+        private readonly AuthService $auth = new AuthService(),
+        private readonly ActivityLogService $activityLogs = new ActivityLogService()
     ) {
     }
 
@@ -33,6 +40,11 @@ final class CompanyService
                 'id' => (string) $row['id'],
                 'name' => (string) $row['name'],
                 'description' => (string) ($row['description'] ?? ''),
+                'planCode' => (string) ($row['plan_code'] ?? ''),
+                'planName' => (string) ($row['plan_name'] ?? ''),
+                'subscriptionStatus' => (string) ($row['subscription_status'] ?? ''),
+                'currencyCode' => (string) ($row['currency_code'] ?? ''),
+                'timezone' => (string) ($row['timezone'] ?? ''),
                 'establishmentsCount' => (int) ($row['establishments_count'] ?? 0),
                 'usersCount' => (int) ($row['users_count'] ?? 0),
                 'createdAt' => (string) $row['created_at'],
@@ -66,9 +78,27 @@ final class CompanyService
                 'id' => (string) $company['id'],
                 'name' => (string) $company['name'],
                 'description' => (string) ($company['description'] ?? ''),
+                'planCode' => (string) ($company['plan_code'] ?? ''),
+                'planName' => (string) ($company['plan_name'] ?? ''),
+                'subscriptionStatus' => (string) ($company['subscription_status'] ?? ''),
+                'currencyCode' => (string) ($company['currency_code'] ?? ''),
+                'timezone' => (string) ($company['timezone'] ?? ''),
+                'dateFormat' => (string) ($company['date_format'] ?? ''),
+                'brandingName' => (string) ($company['branding_name'] ?? ''),
                 'createdAt' => (string) $company['created_at'],
                 'establishmentsCount' => (int) ($company['establishments_count'] ?? 0),
                 'usersCount' => (int) ($company['users_count'] ?? 0),
+            ],
+            'settings' => [
+                'currencyCode' => (string) ($company['currency_code'] ?? ''),
+                'timezone' => (string) ($company['timezone'] ?? ''),
+                'dateFormat' => (string) ($company['date_format'] ?? ''),
+                'brandingName' => (string) ($company['branding_name'] ?? ''),
+            ],
+            'subscription' => [
+                'status' => (string) ($company['subscription_status'] ?? ''),
+                'planCode' => (string) ($company['plan_code'] ?? ''),
+                'planName' => (string) ($company['plan_name'] ?? ''),
             ],
             'summary' => [
                 'month' => $normalizedMonth,
@@ -120,6 +150,21 @@ final class CompanyService
                     'createdAt' => (string) $row['created_at'],
                 ];
             }, $this->accessLogs->recentByCompany($companyId)),
+            'activityLogs' => array_map(static function (array $row): array {
+                return [
+                    'id' => (string) $row['id'],
+                    'companyId' => isset($row['company_id']) ? (string) $row['company_id'] : null,
+                    'establishmentId' => isset($row['establishment_id']) ? (string) $row['establishment_id'] : null,
+                    'actorUserId' => (string) $row['actor_user_id'],
+                    'actorName' => (string) ($row['actor_name'] ?? ''),
+                    'actorEmail' => (string) ($row['actor_email'] ?? ''),
+                    'entityType' => (string) $row['entity_type'],
+                    'entityId' => (string) $row['entity_id'],
+                    'action' => (string) $row['action'],
+                    'note' => (string) ($row['note'] ?? ''),
+                    'createdAt' => (string) $row['created_at'],
+                ];
+            }, $this->activityLogs->recentByCompany($companyId)),
         ];
     }
 
@@ -149,6 +194,14 @@ final class CompanyService
                 'description' => trim((string) ($payload['description'] ?? '')),
             ]);
 
+            $defaultPlan = $this->plans->findDefault();
+            if ($defaultPlan === null) {
+                throw new InvalidArgumentException('No existe un plan por defecto activo.');
+            }
+
+            $this->subscriptions->createDefault((int) $company['id'], (int) $defaultPlan['id']);
+            $this->settings->createDefault((int) $company['id'], $companyName);
+
             $admin = $this->users->create([
                 'company_id' => (int) $company['id'],
                 'full_name' => $adminName,
@@ -160,11 +213,31 @@ final class CompanyService
 
             $pdo->commit();
 
+            $this->activityLogs->log(
+                $actor,
+                'company',
+                (string) $company['id'],
+                'company_created',
+                (int) $company['id'],
+                null,
+                'Empresa creada con administrador inicial.',
+                [
+                    'companyName' => $companyName,
+                    'adminEmail' => $adminEmail,
+                    'planCode' => (string) $defaultPlan['code'],
+                ]
+            );
+
             return [
                 'company' => [
                     'id' => (string) $company['id'],
                     'name' => (string) $company['name'],
                     'description' => (string) ($company['description'] ?? ''),
+                    'planCode' => (string) $defaultPlan['code'],
+                    'planName' => (string) $defaultPlan['name'],
+                    'subscriptionStatus' => 'active',
+                    'currencyCode' => 'COP',
+                    'timezone' => 'America/Bogota',
                     'createdAt' => (string) $company['created_at'],
                 ],
                 'adminUser' => $this->auth->mapUser($admin),

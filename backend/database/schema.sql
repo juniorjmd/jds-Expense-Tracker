@@ -1,7 +1,11 @@
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS activity_logs;
 DROP TABLE IF EXISTS company_access_logs;
+DROP TABLE IF EXISTS company_settings;
+DROP TABLE IF EXISTS company_subscriptions;
+DROP TABLE IF EXISTS plans;
 DROP TABLE IF EXISTS companies;
 DROP TABLE IF EXISTS user_establishments;
 DROP TABLE IF EXISTS expense_templates;
@@ -16,6 +20,21 @@ CREATE TABLE companies (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     name VARCHAR(120) NOT NULL,
     description TEXT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE plans (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    code VARCHAR(40) NOT NULL UNIQUE,
+    name VARCHAR(120) NOT NULL,
+    description TEXT NULL,
+    monthly_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    establishments_limit INT UNSIGNED NULL,
+    users_limit INT UNSIGNED NULL,
+    is_default TINYINT(1) NOT NULL DEFAULT 0,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id)
@@ -115,6 +134,42 @@ CREATE TABLE transactions (
         ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE company_subscriptions (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    company_id INT UNSIGNED NOT NULL,
+    plan_id INT UNSIGNED NOT NULL,
+    status ENUM('trial', 'active', 'past_due', 'suspended', 'cancelled') NOT NULL DEFAULT 'trial',
+    starts_at DATE NOT NULL,
+    ends_at DATE NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_company_subscriptions_company_status (company_id, status, starts_at),
+    CONSTRAINT fk_company_subscriptions_company
+        FOREIGN KEY (company_id) REFERENCES companies(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_company_subscriptions_plan
+        FOREIGN KEY (plan_id) REFERENCES plans(id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE company_settings (
+    company_id INT UNSIGNED NOT NULL,
+    currency_code VARCHAR(10) NOT NULL DEFAULT 'COP',
+    timezone VARCHAR(60) NOT NULL DEFAULT 'America/Bogota',
+    date_format VARCHAR(30) NOT NULL DEFAULT 'Y-m-d',
+    branding_name VARCHAR(120) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (company_id),
+    CONSTRAINT fk_company_settings_company
+        FOREIGN KEY (company_id) REFERENCES companies(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE company_access_logs (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     actor_user_id INT UNSIGNED NOT NULL,
@@ -135,12 +190,50 @@ CREATE TABLE company_access_logs (
         ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE activity_logs (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    actor_user_id INT UNSIGNED NOT NULL,
+    company_id INT UNSIGNED NULL,
+    establishment_id INT UNSIGNED NULL,
+    entity_type VARCHAR(60) NOT NULL,
+    entity_id VARCHAR(60) NOT NULL,
+    action VARCHAR(80) NOT NULL,
+    note VARCHAR(255) NULL,
+    metadata_json JSON NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_activity_logs_company_created (company_id, created_at),
+    KEY idx_activity_logs_actor_created (actor_user_id, created_at),
+    CONSTRAINT fk_activity_logs_actor
+        FOREIGN KEY (actor_user_id) REFERENCES users(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_activity_logs_company
+        FOREIGN KEY (company_id) REFERENCES companies(id)
+        ON DELETE SET NULL
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_activity_logs_establishment
+        FOREIGN KEY (establishment_id) REFERENCES establishments(id)
+        ON DELETE SET NULL
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 INSERT INTO companies (name, description) VALUES
 ('Demo Company', 'Empresa semilla para pruebas iniciales');
+
+INSERT INTO plans (code, name, description, monthly_price, establishments_limit, users_limit, is_default, is_active) VALUES
+('free', 'Plan Free', 'Base inicial para una empresa pequena en fase de arranque.', 0.00, 2, 5, 1, 1),
+('growth', 'Plan Growth', 'Escala operaciones con mas usuarios y establecimientos.', 79.00, 10, 50, 0, 1);
 
 INSERT INTO users (company_id, full_name, email, password_hash, role) VALUES
 (NULL, 'Super Usuario', 'admin@sistema.com', '$2y$10$PyoC.vSuQt9digrMBZ8xzudoR2bdl28IPPJOGh7RGFit08xVQybme', 'superusuario'),
 (1, 'Administrador Demo', 'admin.demo@sistema.com', '$2y$10$PyoC.vSuQt9digrMBZ8xzudoR2bdl28IPPJOGh7RGFit08xVQybme', 'administrador');
+
+INSERT INTO company_subscriptions (company_id, plan_id, status, starts_at, ends_at) VALUES
+(1, 1, 'active', CURDATE(), NULL);
+
+INSERT INTO company_settings (company_id, currency_code, timezone, date_format, branding_name) VALUES
+(1, 'COP', 'America/Bogota', 'Y-m-d', 'Demo Company');
 
 INSERT INTO establishments (company_id, name, description) VALUES
 (1, 'Casa Matriz', 'Operacion principal del negocio'),

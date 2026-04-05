@@ -9,7 +9,8 @@ use InvalidArgumentException;
 final class EstablishmentService
 {
     public function __construct(
-        private readonly EstablishmentRepository $repository = new EstablishmentRepository()
+        private readonly EstablishmentRepository $repository = new EstablishmentRepository(),
+        private readonly ActivityLogService $activityLogs = new ActivityLogService()
     ) {
     }
 
@@ -45,19 +46,48 @@ final class EstablishmentService
             throw new InvalidArgumentException('La empresa del establecimiento es obligatoria.');
         }
 
-        return $this->mapEstablishment($this->repository->create([
+        $created = $this->repository->create([
             'company_id' => $companyId,
             'name' => $name,
             'description' => trim((string) ($payload['description'] ?? '')),
-        ], date('Y-m')));
+        ], date('Y-m'));
+
+        $this->activityLogs->log(
+            $actor,
+            'establishment',
+            (string) $created['id'],
+            'establishment_created',
+            (int) $created['company_id'],
+            (int) $created['id'],
+            'Establecimiento creado.',
+            [
+                'name' => (string) $created['name'],
+            ]
+        );
+
+        return $this->mapEstablishment($created);
     }
 
     public function delete(array $actor, int $id): bool
     {
         $companyId = ($actor['role'] ?? '') === 'superusuario' ? null : (int) ($actor['company_id'] ?? 0);
-        if ($id < 1 || $this->repository->find($id, date('Y-m'), $companyId) === null) {
+        $existing = $id > 0 ? $this->repository->find($id, date('Y-m'), $companyId) : null;
+        if ($id < 1 || $existing === null) {
             return false;
         }
+
+        $this->activityLogs->log(
+            $actor,
+            'establishment',
+            (string) $existing['id'],
+            'establishment_deleted',
+            (int) $existing['company_id'],
+            (int) $existing['id'],
+            'Establecimiento eliminado.',
+            [
+                'name' => (string) ($existing['name'] ?? ''),
+            ]
+        );
 
         return $this->repository->delete($id, $companyId);
     }

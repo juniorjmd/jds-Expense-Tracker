@@ -13,31 +13,54 @@ import { SummaryService } from '../services/summary.service';
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div class="shell" *ngIf="establishment as current">
-      <header class="topbar">
-        <div>
+      <header class="hero">
+        <div class="hero-copy">
           <a routerLink="/" class="back">Volver</a>
+          <p class="eyebrow">Operacion por establecimiento</p>
           <h1>{{ current.name }}</h1>
           <p class="muted">{{ current.description || 'Sin descripcion' }}</p>
         </div>
 
-        <div class="actions">
-          <button *ngIf="auth.can('edit')" class="btn" type="button" (click)="showTransactionForm = !showTransactionForm">
-            {{ showTransactionForm ? 'Cancelar ingreso/gasto' : 'Nueva transaccion' }}
-          </button>
-          <button *ngIf="auth.can('edit')" class="btn ghost" type="button" (click)="showTemplateForm = !showTemplateForm">
-            {{ showTemplateForm ? 'Cancelar predeterminado' : 'Gasto predeterminado' }}
-          </button>
+        <div class="hero-note">
+          <strong>{{ current.companyName || 'Empresa activa' }}</strong>
+          <span>
+            {{ current.transactionCount ?? 0 }} movimientos del mes
+            · Balance {{ currency(summary.balance) }}
+          </span>
+          <div class="actions" *ngIf="auth.can('edit')">
+            <button class="btn" type="button" (click)="showTransactionForm = !showTransactionForm">
+              {{ showTransactionForm ? 'Cancelar ingreso/gasto' : 'Nueva transaccion' }}
+            </button>
+            <button class="btn ghost" type="button" (click)="showTemplateForm = !showTemplateForm">
+              {{ showTemplateForm ? 'Cancelar predeterminado' : 'Gasto predeterminado' }}
+            </button>
+          </div>
         </div>
       </header>
 
       <section class="grid metrics">
-        <article class="metric"><span>Ingresos</span><strong class="income">{{ currency(summary.income) }}</strong></article>
-        <article class="metric"><span>Gastos</span><strong class="expense">{{ currency(summary.expense) }}</strong></article>
-        <article class="metric"><span>Balance</span><strong [class.income]="summary.balance >= 0" [class.expense]="summary.balance < 0">{{ currency(summary.balance) }}</strong></article>
+        <article class="metric">
+          <span>Ingresos</span>
+          <strong class="income">{{ currency(summary.income) }}</strong>
+          <small>Entradas registradas en este establecimiento.</small>
+        </article>
+        <article class="metric">
+          <span>Gastos</span>
+          <strong class="expense">{{ currency(summary.expense) }}</strong>
+          <small>Salidas asociadas a la operacion local.</small>
+        </article>
+        <article class="metric">
+          <span>Balance</span>
+          <strong [class.income]="summary.balance >= 0" [class.expense]="summary.balance < 0">{{ currency(summary.balance) }}</strong>
+          <small>Resultado acumulado para el periodo activo.</small>
+        </article>
       </section>
 
       <section class="panel" *ngIf="showTransactionForm">
-        <h2>Nueva transaccion</h2>
+        <div class="panel-head">
+          <h2>Nueva transaccion</h2>
+          <p class="muted">Registra ingresos o gastos sin salir del contexto del establecimiento.</p>
+        </div>
         <div class="form-grid">
           <label><span>Tipo</span><select [(ngModel)]="transactionType"><option value="income">Ingreso</option><option value="expense">Gasto</option></select></label>
           <label><span>Monto</span><input [(ngModel)]="transactionAmount" type="number" min="1"></label>
@@ -49,7 +72,10 @@ import { SummaryService } from '../services/summary.service';
       </section>
 
       <section class="panel" *ngIf="showTemplateForm">
-        <h2>Gasto predeterminado</h2>
+        <div class="panel-head">
+          <h2>Gasto predeterminado</h2>
+          <p class="muted">Guarda gastos recurrentes para aplicarlos rapido cuando sea necesario.</p>
+        </div>
         <div class="form-grid">
           <label><span>Categoria</span><input [(ngModel)]="templateCategory"></label>
           <label><span>Monto</span><input [(ngModel)]="templateAmount" type="number" min="1"></label>
@@ -60,7 +86,7 @@ import { SummaryService } from '../services/summary.service';
 
       <section class="panel">
         <div class="panel-head"><h2>Gastos predeterminados</h2><p class="muted">Aplicalos rapido al flujo del establecimiento.</p></div>
-        <div class="stack" *ngIf="templates.length; else noTemplates">
+        <div class="list-grid" *ngIf="templates.length; else noTemplates">
           <article class="row-card" *ngFor="let item of templates">
             <div><strong>{{ item.category }}</strong><p class="muted">{{ item.description }}</p></div>
             <div class="actions">
@@ -75,7 +101,7 @@ import { SummaryService } from '../services/summary.service';
 
       <section class="panel">
         <div class="panel-head"><h2>Transacciones</h2><p class="muted">Historial del establecimiento seleccionado.</p></div>
-        <div class="stack" *ngIf="transactions.length; else noTransactions">
+        <div class="list-grid" *ngIf="transactions.length; else noTransactions">
           <article class="row-card" *ngFor="let item of transactions">
             <div>
               <strong>{{ item.category }}</strong>
@@ -94,27 +120,35 @@ import { SummaryService } from '../services/summary.service';
   `,
   styles: [`
     .shell { padding: 32px; display: grid; gap: 24px; }
-    .topbar, .panel, .metric { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 28px; box-shadow: var(--shadow-card); backdrop-filter: blur(12px); }
-    .topbar, .panel, .row-card { padding: 24px; }
-    .topbar { display: flex; justify-content: space-between; gap: 20px; background: linear-gradient(135deg, rgba(23,58,99,.92), rgba(63,124,191,.84)); color: #fff; }
-    .metrics { display:grid; gap:16px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-    .metric { padding: 22px; display:grid; gap:8px; background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,250,255,.82)); }
+    .hero, .panel, .metric, .row-card { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 28px; box-shadow: var(--shadow-card); backdrop-filter: blur(14px); }
+    .hero { padding: 30px 32px; display: flex; justify-content: space-between; gap: 20px; background: linear-gradient(135deg, rgba(15,23,42,.97), rgba(30,58,95,.94) 48%, rgba(47,110,165,.90)); color: #fff; position: relative; overflow: hidden; }
+    .hero::after { content: ""; position: absolute; inset: auto -6% -38% auto; width: 240px; height: 240px; border-radius: 999px; background: radial-gradient(circle, rgba(244,162,97,.30), transparent 68%); pointer-events: none; }
+    .hero-copy { display: grid; gap: 8px; max-width: 640px; }
+    .hero-note { max-width: 360px; display: grid; gap: 8px; padding: 18px; border-radius: 22px; background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.16); align-content: start; }
+    .eyebrow { margin: 8px 0 0; text-transform: uppercase; letter-spacing: .2em; font-size: 11px; font-weight: 800; color: rgba(255,255,255,.7); }
+    .metrics { display:grid; gap:16px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+    .metric { padding: 22px; display:grid; gap:8px; background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(241,245,249,.90)); }
+    .metric strong { font-size: 28px; letter-spacing: -.04em; }
+    .panel { padding: 24px; display: grid; gap: 18px; background: var(--surface-strong); }
+    .panel-head { display: grid; gap: 6px; }
     .actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .btn { border:0; border-radius:999px; padding:12px 18px; background:linear-gradient(135deg, #173a63, #3f7cbf); color:#fff; cursor:pointer; font-weight:700; text-decoration:none; }
-    .ghost { background:linear-gradient(135deg, rgba(23,58,99,.06), rgba(63,124,191,.14)); color:#23407a; border:1px solid rgba(74, 102, 158, .12); }
+    .btn { border:0; border-radius:999px; padding:12px 18px; background:linear-gradient(135deg, #0f172a, #2f6ea5); color:#fff; cursor:pointer; font-weight:700; text-decoration:none; box-shadow:0 16px 30px rgba(15, 23, 42, .20); }
+    .ghost { background:linear-gradient(135deg, rgba(255,255,255,.14), rgba(255,255,255,.08)); color:#fff; border:1px solid rgba(255,255,255,.18); box-shadow:none; }
+    .panel .ghost { background:linear-gradient(135deg, rgba(47,110,165,.12), rgba(106,166,217,.22)); color:#24466b; border:1px solid rgba(71, 85, 105, .10); }
     .back { text-decoration:none; color:inherit; font-weight:700; }
-    .muted, small { color:#66728a; }
-    .topbar .muted { color:rgba(255,255,255,.78); }
+    .muted, small { color:var(--muted); }
+    .hero .muted, .hero-note span { color:rgba(255,255,255,.78); }
+    h1, h2, p { margin: 0; }
     .form-grid { display:grid; gap:14px; grid-template-columns: repeat(2, minmax(0,1fr)); }
     .full { grid-column:1 / -1; }
     label { display:grid; gap:8px; }
-    input, textarea, select { width:100%; border:1px solid rgba(100, 126, 176, .22); border-radius:18px; padding:14px 16px; background:linear-gradient(180deg, #ffffff, #f7faff); }
-    .stack { display:grid; gap:12px; }
-    .row-card { display:flex; justify-content:space-between; gap:16px; border-radius:20px; background:linear-gradient(135deg, rgba(23,58,99,.05), rgba(217,141,67,.08)); border:1px solid rgba(92, 117, 161, .12); }
+    input, textarea, select { width:100%; border:1px solid rgba(71, 85, 105, .18); border-radius:18px; padding:14px 16px; background:linear-gradient(180deg, #ffffff, #f8fafc); }
+    .list-grid { display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .row-card { padding: 20px; display:flex; justify-content:space-between; gap:16px; border-radius:22px; background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(241,245,249,.90)); align-items:flex-start; }
     .amount { font-weight:700; }
-    .income { color:#12976b; }
-    .expense { color:#d24f45; }
-    @media (max-width: 768px) { .shell { padding: 18px; } .topbar, .row-card { flex-direction:column; } .form-grid { grid-template-columns:1fr; } }
+    .income { color:var(--success); }
+    .expense { color:var(--danger); }
+    @media (max-width: 920px) { .shell { padding: 18px; } .hero, .row-card { flex-direction:column; } .form-grid { grid-template-columns:1fr; } .list-grid { grid-template-columns:1fr; } }
   `],
 })
 export class EstablishmentDetailPageComponent implements OnInit {

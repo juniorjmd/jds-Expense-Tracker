@@ -50,6 +50,11 @@ import { StorageService } from '../services/storage.service';
                 <strong>{{ item.usersCount ?? 0 }}</strong>
               </div>
             </div>
+            <div class="pill-row">
+              <span class="pill">{{ item.planName || 'Plan base' }}</span>
+              <span class="pill alt">{{ item.subscriptionStatus || 'Sin estado' }}</span>
+              <span class="pill soft">{{ item.currencyCode || 'COP' }}</span>
+            </div>
             <div class="meta">
               <a class="btn small" [routerLink]="['/empresas', item.id]">Entrar al detalle</a>
             </div>
@@ -82,6 +87,10 @@ import { StorageService } from '../services/storage.service';
     .stats div { display:grid; gap:6px; }
     .stats span { color:var(--muted); font-size:13px; }
     .stats strong { font-size:28px; letter-spacing:-.04em; color:var(--ink); }
+    .pill-row { display:flex; gap:8px; flex-wrap:wrap; }
+    .pill { display:inline-flex; align-items:center; padding:8px 12px; border-radius:999px; background:linear-gradient(135deg, rgba(47,110,165,.12), rgba(106,166,217,.24)); color:#24466b; font-size:12px; font-weight:700; }
+    .pill.alt { background:linear-gradient(135deg, rgba(244,162,97,.16), rgba(255,255,255,.55)); color:#84522a; }
+    .pill.soft { background:linear-gradient(135deg, rgba(15,23,42,.05), rgba(241,245,249,.92)); color:#334155; }
     .back { text-decoration:none; color:inherit; font-weight:700; }
     .muted, .meta span { color:var(--muted); }
     @media (max-width: 768px) { .shell { padding:18px; } .form-grid { grid-template-columns:1fr; } .company-grid { grid-template-columns:1fr; } .stats { grid-template-columns:1fr; } }

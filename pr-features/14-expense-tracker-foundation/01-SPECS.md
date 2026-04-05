@@ -18,13 +18,16 @@ The repository is no longer just establishing a foundation. It now needs to oper
 - enforce company scoping across users, establishments, templates, transactions, and summaries
 - prevent the superuser from seeing cross-company operational detail by default
 - require explicit company entry for that detail and audit it
+- add a first SaaS persistence layer for plans, company subscription state, and company-level settings
+- harden sensitive user-management rules for self-deletion and last-admin protection
+- introduce at least one integration test that validates the new Expense Tracker flow end to end
 - document the change set with clear PR materials
 
 ## Non-Goals
 
-- subscription billing and plans
-- tenant-specific branding
-- complete audit coverage for every destructive action
+- subscription billing automation
+- per-tenant visual theming beyond basic branding metadata
+- complete audit coverage for every possible action in the product
 - advanced reporting, filtering, or pagination
 
 ## Target Outcomes
@@ -34,4 +37,7 @@ The repository is no longer just establishing a foundation. It now needs to oper
 - each transaction is tied to both company and establishment
 - the superuser can maintain companies without automatically seeing all operational detail
 - explicit superuser inspection of a company is tracked
+- each company has an initial SaaS context with plan, subscription state, and configuration defaults
+- critical user-management mistakes are blocked at service level
+- the new flow has executable validation beyond manual checks
 - reviewers can evaluate the work through dedicated specs, implementation notes, and acceptance criteria

@@ -29,7 +29,7 @@ Acceso inicial:
 
 - `frontend/`: interfaz web de la plataforma
 - `backend/`: API, logica de negocio y acceso a base de datos
-- `pr-features/`: documentos funcionales del avance realizado
+- `pr-features/`: paquete global de PR con specs, implementacion y criterios de aceptacion del avance actual
 
 ## Vision SaaS
 
