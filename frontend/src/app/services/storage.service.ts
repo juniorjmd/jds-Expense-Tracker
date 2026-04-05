@@ -1,10 +1,28 @@
 import { Injectable } from '@angular/core';
-import { Establishment, ExpenseTemplate, MonthlySummary, Transaction } from '../models';
+import { Company, CompanyOverview, Establishment, ExpenseTemplate, MonthlySummary, Transaction } from '../models';
 import { ApiService } from './api.service';
 
 @Injectable({ providedIn: 'root' })
 export class StorageService {
   constructor(private readonly api: ApiService) {}
+
+  getCompanies(): Promise<Company[]> {
+    return this.api.get<Company[]>('/companies');
+  }
+
+  getCompanyOverview(companyId: string, month = new Date().toISOString().slice(0, 7)): Promise<CompanyOverview> {
+    return this.api.get<CompanyOverview>(`/companies/${companyId}?month=${month}`);
+  }
+
+  saveCompany(payload: {
+    name: string;
+    description?: string;
+    adminName: string;
+    adminEmail: string;
+    adminPassword: string;
+  }): Promise<{ company: Company }> {
+    return this.api.post<{ company: Company }>('/companies', payload);
+  }
 
   getEstablishments(month = new Date().toISOString().slice(0, 7)): Promise<Establishment[]> {
     return this.api.get<Establishment[]>(`/establishments?month=${month}`);

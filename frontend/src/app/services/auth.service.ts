@@ -45,6 +45,7 @@ export class AuthService {
 
   async saveUser(payload: {
     id?: string;
+    companyId?: string;
     name: string;
     email: string;
     password?: string;
@@ -72,17 +73,22 @@ export class AuthService {
     await this.api.delete<{ deleted: boolean }>(`/users/${id}`);
   }
 
-  can(permission: 'create' | 'edit' | 'view-summary' | 'manage-users'): boolean {
+  can(permission: 'create' | 'edit' | 'view-summary' | 'manage-users' | 'manage-companies'): boolean {
     const user = this.getCurrentUser();
     if (!user) {
       return false;
     }
 
-    if (user.role === 'administrador') {
+    if (user.role === 'superusuario') {
       return true;
     }
 
+    if (user.role === 'administrador') {
+      return permission !== 'manage-companies';
+    }
+
     switch (permission) {
+      case 'manage-companies':
       case 'manage-users':
       case 'view-summary':
         return false;
@@ -98,6 +104,6 @@ export class AuthService {
       return false;
     }
 
-    return user.role === 'administrador' || user.assignedEstablishments.includes(establishmentId);
+    return user.role === 'superusuario' || user.role === 'administrador' || user.assignedEstablishments.includes(establishmentId);
   }
 }

@@ -15,16 +15,16 @@ final class TransactionService
     ) {
     }
 
-    public function listByEstablishment(int $establishmentId): array
+    public function listByEstablishment(array $actor, int $establishmentId): array
     {
-        $this->assertEstablishment($establishmentId);
+        $companyId = $this->assertEstablishment($actor, $establishmentId);
 
-        return array_map([$this, 'mapTransaction'], $this->repository->byEstablishment($establishmentId));
+        return array_map([$this, 'mapTransaction'], $this->repository->byEstablishment($establishmentId, $companyId));
     }
 
-    public function create(int $establishmentId, array $payload): array
+    public function create(array $actor, int $establishmentId, array $payload): array
     {
-        $this->assertEstablishment($establishmentId);
+        $companyId = $this->assertEstablishment($actor, $establishmentId);
 
         $type = strtolower(trim((string) ($payload['type'] ?? 'expense')));
         if (!in_array($type, ['income', 'expense'], true)) {
@@ -47,6 +47,7 @@ final class TransactionService
         }
 
         $created = $this->repository->create([
+            'company_id' => $companyId,
             'establishment_id' => $establishmentId,
             'type' => $type,
             'category' => $category,
@@ -59,19 +60,29 @@ final class TransactionService
         return $this->mapTransaction($created);
     }
 
-    public function delete(int $id): bool
+    public function delete(array $actor, int $id): bool
     {
-        if ($id < 1 || $this->repository->find($id) === null) {
+        $transaction = $this->repository->find($id);
+        if ($id < 1 || $transaction === null) {
+            return false;
+        }
+
+        if (($actor['role'] ?? '') !== 'superusuario' && (int) ($transaction['company_id'] ?? 0) !== (int) ($actor['company_id'] ?? 0)) {
             return false;
         }
 
         return $this->repository->delete($id);
     }
 
-    public function summary(string $month): array
+    public function summary(array $actor, string $month, ?int $selectedCompanyId = null): array
     {
         $normalizedMonth = preg_match('/^\d{4}-\d{2}$/', $month) === 1 ? $month : date('Y-m');
-        $totals = $this->repository->monthlyTotals($normalizedMonth);
+        $companyId = ($actor['role'] ?? '') === 'superusuario' ? $selectedCompanyId : (int) ($actor['company_id'] ?? 0);
+        if (($actor['role'] ?? '') === 'superusuario' && ($companyId ?? 0) < 1) {
+            throw new InvalidArgumentException('El superusuario debe ingresar a una empresa especifica para ver su resumen operativo.');
+        }
+
+        $totals = $this->repository->monthlyTotals($normalizedMonth, $companyId);
         $income = (float) ($totals['income'] ?? 0);
         $expense = (float) ($totals['expense'] ?? 0);
         $months = array_map(
@@ -95,7 +106,7 @@ final class TransactionService
                 'expense' => $expense,
                 'balance' => $income - $expense,
             ];
-        }, $this->repository->monthlyBreakdown($normalizedMonth));
+        }, $this->repository->monthlyBreakdown($normalizedMonth, $companyId));
 
         return [
             'month' => $normalizedMonth,
@@ -107,17 +118,22 @@ final class TransactionService
         ];
     }
 
-    private function assertEstablishment(int $establishmentId): void
+    private function assertEstablishment(array $actor, int $establishmentId): int
     {
-        if ($establishmentId < 1 || $this->establishmentRepository->find($establishmentId, date('Y-m')) === null) {
+        $companyId = ($actor['role'] ?? '') === 'superusuario' ? null : (int) ($actor['company_id'] ?? 0);
+        $establishment = $establishmentId > 0 ? $this->establishmentRepository->find($establishmentId, date('Y-m'), $companyId) : null;
+        if ($establishment === null) {
             throw new InvalidArgumentException('El establecimiento no existe.');
         }
+
+        return (int) $establishment['company_id'];
     }
 
     private function mapTransaction(array $row): array
     {
         return [
             'id' => (string) $row['id'],
+            'companyId' => (string) $row['company_id'],
             'establishmentId' => (string) $row['establishment_id'],
             'type' => (string) $row['type'],
             'amount' => (float) $row['amount'],

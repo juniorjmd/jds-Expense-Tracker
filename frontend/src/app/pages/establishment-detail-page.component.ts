@@ -94,22 +94,23 @@ import { SummaryService } from '../services/summary.service';
   `,
   styles: [`
     .shell { padding: 32px; display: grid; gap: 24px; }
-    .topbar, .panel, .metric { background: #fff; border-radius: 24px; box-shadow: 0 18px 50px rgba(18,30,61,.08); }
+    .topbar, .panel, .metric { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 28px; box-shadow: var(--shadow-card); backdrop-filter: blur(12px); }
     .topbar, .panel, .row-card { padding: 24px; }
-    .topbar { display: flex; justify-content: space-between; gap: 20px; }
+    .topbar { display: flex; justify-content: space-between; gap: 20px; background: linear-gradient(135deg, rgba(23,58,99,.92), rgba(63,124,191,.84)); color: #fff; }
     .metrics { display:grid; gap:16px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-    .metric { padding: 22px; display:grid; gap:8px; }
+    .metric { padding: 22px; display:grid; gap:8px; background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,250,255,.82)); }
     .actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .btn { border:0; border-radius:999px; padding:12px 18px; background:#14213d; color:#fff; cursor:pointer; font:inherit; text-decoration:none; }
-    .ghost { background:#eef3ff; color:#23407a; }
-    .back { text-decoration:none; color:#42629d; font-weight:700; }
+    .btn { border:0; border-radius:999px; padding:12px 18px; background:linear-gradient(135deg, #173a63, #3f7cbf); color:#fff; cursor:pointer; font-weight:700; text-decoration:none; }
+    .ghost { background:linear-gradient(135deg, rgba(23,58,99,.06), rgba(63,124,191,.14)); color:#23407a; border:1px solid rgba(74, 102, 158, .12); }
+    .back { text-decoration:none; color:inherit; font-weight:700; }
     .muted, small { color:#66728a; }
+    .topbar .muted { color:rgba(255,255,255,.78); }
     .form-grid { display:grid; gap:14px; grid-template-columns: repeat(2, minmax(0,1fr)); }
     .full { grid-column:1 / -1; }
     label { display:grid; gap:8px; }
-    input, textarea, select { width:100%; border:1px solid #d8dfec; border-radius:16px; padding:14px 16px; font:inherit; background:#f9fbff; }
+    input, textarea, select { width:100%; border:1px solid rgba(100, 126, 176, .22); border-radius:18px; padding:14px 16px; background:linear-gradient(180deg, #ffffff, #f7faff); }
     .stack { display:grid; gap:12px; }
-    .row-card { display:flex; justify-content:space-between; gap:16px; border-radius:20px; background:#f7f9fd; }
+    .row-card { display:flex; justify-content:space-between; gap:16px; border-radius:20px; background:linear-gradient(135deg, rgba(23,58,99,.05), rgba(217,141,67,.08)); border:1px solid rgba(92, 117, 161, .12); }
     .amount { font-weight:700; }
     .income { color:#12976b; }
     .expense { color:#d24f45; }

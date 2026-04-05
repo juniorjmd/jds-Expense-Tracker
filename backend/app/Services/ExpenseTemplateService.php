@@ -16,16 +16,16 @@ final class ExpenseTemplateService
     ) {
     }
 
-    public function listByEstablishment(int $establishmentId): array
+    public function listByEstablishment(array $actor, int $establishmentId): array
     {
-        $this->assertEstablishment($establishmentId);
+        $companyId = $this->assertEstablishment($actor, $establishmentId);
 
-        return array_map([$this, 'mapTemplate'], $this->repository->byEstablishment($establishmentId));
+        return array_map([$this, 'mapTemplate'], $this->repository->byEstablishment($establishmentId, $companyId));
     }
 
-    public function create(int $establishmentId, array $payload): array
+    public function create(array $actor, int $establishmentId, array $payload): array
     {
-        $this->assertEstablishment($establishmentId);
+        $companyId = $this->assertEstablishment($actor, $establishmentId);
 
         $category = trim((string) ($payload['category'] ?? ''));
         if ($category === '') {
@@ -38,6 +38,7 @@ final class ExpenseTemplateService
         }
 
         return $this->mapTemplate($this->repository->create([
+            'company_id' => $companyId,
             'establishment_id' => $establishmentId,
             'category' => $category,
             'description' => trim((string) ($payload['description'] ?? '')),
@@ -45,14 +46,18 @@ final class ExpenseTemplateService
         ]));
     }
 
-    public function apply(int $id): array
+    public function apply(array $actor, int $id): array
     {
         $template = $this->repository->find($id);
         if ($template === null) {
             throw new InvalidArgumentException('El gasto predeterminado no existe.');
         }
 
-        return $this->transactionService->create((int) $template['establishment_id'], [
+        if (($actor['role'] ?? '') !== 'superusuario' && (int) ($template['company_id'] ?? 0) !== (int) ($actor['company_id'] ?? 0)) {
+            throw new InvalidArgumentException('No tienes acceso a este gasto predeterminado.');
+        }
+
+        return $this->transactionService->create($actor, (int) $template['establishment_id'], [
             'type' => 'expense',
             'category' => (string) $template['category'],
             'description' => (string) ($template['description'] ?? ''),
@@ -62,26 +67,36 @@ final class ExpenseTemplateService
         ]);
     }
 
-    public function delete(int $id): bool
+    public function delete(array $actor, int $id): bool
     {
-        if ($id < 1 || $this->repository->find($id) === null) {
+        $template = $this->repository->find($id);
+        if ($id < 1 || $template === null) {
+            return false;
+        }
+
+        if (($actor['role'] ?? '') !== 'superusuario' && (int) ($template['company_id'] ?? 0) !== (int) ($actor['company_id'] ?? 0)) {
             return false;
         }
 
         return $this->repository->delete($id);
     }
 
-    private function assertEstablishment(int $establishmentId): void
+    private function assertEstablishment(array $actor, int $establishmentId): int
     {
-        if ($establishmentId < 1 || $this->establishmentRepository->find($establishmentId, date('Y-m')) === null) {
+        $companyId = ($actor['role'] ?? '') === 'superusuario' ? null : (int) ($actor['company_id'] ?? 0);
+        $establishment = $establishmentId > 0 ? $this->establishmentRepository->find($establishmentId, date('Y-m'), $companyId) : null;
+        if ($establishment === null) {
             throw new InvalidArgumentException('El establecimiento no existe.');
         }
+
+        return (int) $establishment['company_id'];
     }
 
     private function mapTemplate(array $row): array
     {
         return [
             'id' => (string) $row['id'],
+            'companyId' => (string) $row['company_id'],
             'establishmentId' => (string) $row['establishment_id'],
             'category' => (string) $row['category'],
             'description' => (string) ($row['description'] ?? ''),

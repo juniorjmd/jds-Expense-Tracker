@@ -7,21 +7,26 @@ use App\Core\Database\BaseRepository;
 
 final class TransactionRepository extends BaseRepository
 {
-    public function byEstablishment(int $establishmentId): array
+    public function byEstablishment(int $establishmentId, ?int $companyId = null): array
     {
-        return $this->fetchAll(
-            'SELECT id, establishment_id, type, category, description, amount, transaction_date, from_template, created_at
+        $sql = 'SELECT id, company_id, establishment_id, type, category, description, amount, transaction_date, from_template, created_at
              FROM transactions
-             WHERE establishment_id = :establishment_id
-             ORDER BY transaction_date DESC, id DESC',
-            [':establishment_id' => $establishmentId]
-        );
+             WHERE establishment_id = :establishment_id';
+        $params = [':establishment_id' => $establishmentId];
+        if ($companyId !== null) {
+            $sql .= ' AND company_id = :company_id';
+            $params[':company_id'] = $companyId;
+        }
+
+        $sql .= ' ORDER BY transaction_date DESC, id DESC';
+
+        return $this->fetchAll($sql, $params);
     }
 
     public function find(int $id): ?array
     {
         return $this->fetchOne(
-            'SELECT id, establishment_id, type, category, description, amount, transaction_date, from_template, created_at
+            'SELECT id, company_id, establishment_id, type, category, description, amount, transaction_date, from_template, created_at
              FROM transactions
              WHERE id = :id',
             [':id' => $id]
@@ -31,9 +36,10 @@ final class TransactionRepository extends BaseRepository
     public function create(array $payload): array
     {
         $this->execute(
-            'INSERT INTO transactions (establishment_id, type, category, description, amount, transaction_date, from_template)
-             VALUES (:establishment_id, :type, :category, :description, :amount, :transaction_date, :from_template)',
+            'INSERT INTO transactions (company_id, establishment_id, type, category, description, amount, transaction_date, from_template)
+             VALUES (:company_id, :establishment_id, :type, :category, :description, :amount, :transaction_date, :from_template)',
             [
+                ':company_id' => $payload['company_id'],
                 ':establishment_id' => $payload['establishment_id'],
                 ':type' => $payload['type'],
                 ':category' => $payload['category'],
@@ -61,33 +67,48 @@ final class TransactionRepository extends BaseRepository
         );
     }
 
-    public function monthlyTotals(string $month): array
+    public function monthlyTotals(string $month, ?int $companyId = null): array
     {
-        return $this->fetchOne(
-            'SELECT
+        $sql = 'SELECT
                 COALESCE(SUM(CASE WHEN type = "income" THEN amount ELSE 0 END), 0) AS income,
                 COALESCE(SUM(CASE WHEN type = "expense" THEN amount ELSE 0 END), 0) AS expense
              FROM transactions
-             WHERE DATE_FORMAT(transaction_date, "%Y-%m") = :month',
-            [':month' => $month]
-        ) ?? ['income' => 0, 'expense' => 0];
+             WHERE DATE_FORMAT(transaction_date, "%Y-%m") = :month';
+        $params = [':month' => $month];
+        if ($companyId !== null) {
+            $sql .= ' AND company_id = :company_id';
+            $params[':company_id'] = $companyId;
+        }
+
+        return $this->fetchOne($sql, $params) ?? ['income' => 0, 'expense' => 0];
     }
 
-    public function monthlyBreakdown(string $month): array
+    public function monthlyBreakdown(string $month, ?int $companyId = null): array
     {
-        return $this->fetchAll(
-            'SELECT
+        $sql = 'SELECT
                 e.id,
+                e.company_id,
+                c.name AS company_name,
                 e.name,
                 COALESCE(SUM(CASE WHEN t.type = "income" THEN t.amount ELSE 0 END), 0) AS income,
                 COALESCE(SUM(CASE WHEN t.type = "expense" THEN t.amount ELSE 0 END), 0) AS expense
              FROM establishments e
+             INNER JOIN companies c ON c.id = e.company_id
              LEFT JOIN transactions t
                 ON t.establishment_id = e.id
-               AND DATE_FORMAT(t.transaction_date, "%Y-%m") = :month
-             GROUP BY e.id, e.name
-             ORDER BY e.name ASC',
-            [':month' => $month]
+               AND DATE_FORMAT(t.transaction_date, "%Y-%m") = :month';
+        $params = [':month' => $month];
+        if ($companyId !== null) {
+            $sql .= ' WHERE e.company_id = :company_id';
+            $params[':company_id'] = $companyId;
+        }
+
+        $sql .= ' GROUP BY e.id, e.company_id, c.name, e.name
+             ORDER BY c.name ASC, e.name ASC';
+
+        return $this->fetchAll(
+            $sql,
+            $params
         );
     }
 }

@@ -1,5 +1,35 @@
+export interface Company {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  establishmentsCount?: number;
+  usersCount?: number;
+}
+
+export interface CompanyAccessLog {
+  id: string;
+  companyId: string;
+  actorUserId: string;
+  actorName: string;
+  actorEmail: string;
+  action: string;
+  note?: string;
+  createdAt: string;
+}
+
+export interface CompanyOverview {
+  company: Company;
+  summary: MonthlySummary;
+  establishments: Establishment[];
+  users: User[];
+  accessLogs: CompanyAccessLog[];
+}
+
 export interface Establishment {
   id: string;
+  companyId?: string;
+  companyName?: string;
   name: string;
   description?: string;
   createdAt: string;
@@ -11,6 +41,7 @@ export interface Establishment {
 
 export interface Transaction {
   id: string;
+  companyId?: string;
   establishmentId: string;
   type: 'income' | 'expense';
   amount: number;
@@ -22,6 +53,7 @@ export interface Transaction {
 
 export interface ExpenseTemplate {
   id: string;
+  companyId?: string;
   establishmentId: string;
   category: string;
   description: string;
@@ -29,10 +61,12 @@ export interface ExpenseTemplate {
   createdAt?: string;
 }
 
-export type UserRole = 'administrador' | 'editor' | 'visualizador';
+export type UserRole = 'superusuario' | 'administrador' | 'editor' | 'visualizador';
 
 export interface User {
   id: string;
+  companyId?: string | null;
+  companyName?: string | null;
   name: string;
   email: string;
   password?: string;

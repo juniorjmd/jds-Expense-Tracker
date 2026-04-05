@@ -36,6 +36,8 @@ final class AuthService
 
         return [
             'id' => (string) $row['id'],
+            'companyId' => isset($row['company_id']) && $row['company_id'] !== null ? (string) $row['company_id'] : null,
+            'companyName' => isset($row['company_name']) ? (string) $row['company_name'] : null,
             'name' => (string) $row['full_name'],
             'email' => (string) $row['email'],
             'role' => (string) $row['role'],

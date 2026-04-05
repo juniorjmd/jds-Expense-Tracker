@@ -13,40 +13,53 @@ final class EstablishmentService
     ) {
     }
 
-    public function list(?string $month = null): array
+    public function list(array $actor, ?string $month = null): array
     {
         $normalizedMonth = preg_match('/^\d{4}-\d{2}$/', (string) $month) === 1 ? (string) $month : date('Y-m');
-        return array_map([$this, 'mapEstablishment'], $this->repository->all($normalizedMonth));
+        $companyId = ($actor['role'] ?? '') === 'superusuario' ? null : (int) ($actor['company_id'] ?? 0);
+
+        return array_map([$this, 'mapEstablishment'], $this->repository->all($normalizedMonth, $companyId));
     }
 
-    public function show(int $id, ?string $month = null): ?array
+    public function show(array $actor, int $id, ?string $month = null): ?array
     {
         $normalizedMonth = preg_match('/^\d{4}-\d{2}$/', (string) $month) === 1 ? (string) $month : date('Y-m');
-        $establishment = $this->repository->find($id, $normalizedMonth);
+        $companyId = ($actor['role'] ?? '') === 'superusuario' ? null : (int) ($actor['company_id'] ?? 0);
+        $establishment = $this->repository->find($id, $normalizedMonth, $companyId);
 
         return $establishment !== null ? $this->mapEstablishment($establishment) : null;
     }
 
-    public function create(array $payload): array
+    public function create(array $actor, array $payload): array
     {
         $name = trim((string) ($payload['name'] ?? ''));
         if ($name === '') {
             throw new InvalidArgumentException('El nombre del establecimiento es obligatorio.');
         }
 
+        $companyId = ($actor['role'] ?? '') === 'superusuario'
+            ? (int) ($payload['companyId'] ?? 0)
+            : (int) ($actor['company_id'] ?? 0);
+
+        if ($companyId < 1) {
+            throw new InvalidArgumentException('La empresa del establecimiento es obligatoria.');
+        }
+
         return $this->mapEstablishment($this->repository->create([
+            'company_id' => $companyId,
             'name' => $name,
             'description' => trim((string) ($payload['description'] ?? '')),
         ], date('Y-m')));
     }
 
-    public function delete(int $id): bool
+    public function delete(array $actor, int $id): bool
     {
-        if ($id < 1 || $this->repository->find($id, date('Y-m')) === null) {
+        $companyId = ($actor['role'] ?? '') === 'superusuario' ? null : (int) ($actor['company_id'] ?? 0);
+        if ($id < 1 || $this->repository->find($id, date('Y-m'), $companyId) === null) {
             return false;
         }
 
-        return $this->repository->delete($id);
+        return $this->repository->delete($id, $companyId);
     }
 
     private function mapEstablishment(array $row): array
@@ -56,6 +69,8 @@ final class EstablishmentService
 
         return [
             'id' => (string) $row['id'],
+            'companyId' => (string) $row['company_id'],
+            'companyName' => (string) ($row['company_name'] ?? ''),
             'name' => (string) $row['name'],
             'description' => (string) ($row['description'] ?? ''),
             'createdAt' => (string) $row['created_at'],

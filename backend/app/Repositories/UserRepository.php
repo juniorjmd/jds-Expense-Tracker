@@ -7,20 +7,52 @@ use App\Core\Database\BaseRepository;
 
 final class UserRepository extends BaseRepository
 {
-    public function all(): array
+    public function allVisible(array $actor): array
     {
-        return $this->fetchAll(
-            'SELECT
+        $sql = 'SELECT
                 u.id,
+                u.company_id,
+                c.name AS company_name,
                 u.full_name,
                 u.email,
                 u.role,
                 u.created_at,
                 GROUP_CONCAT(ue.establishment_id ORDER BY ue.establishment_id SEPARATOR ",") AS assigned_establishments
              FROM users u
+             LEFT JOIN companies c ON c.id = u.company_id
+             LEFT JOIN user_establishments ue ON ue.user_id = u.id';
+
+        $params = [];
+        if (($actor['role'] ?? '') !== 'superusuario') {
+            $sql .= ' WHERE u.company_id = :company_id AND u.role <> "superusuario"';
+            $params[':company_id'] = (int) ($actor['company_id'] ?? 0);
+        }
+
+        $sql .= ' GROUP BY u.id, u.company_id, c.name, u.full_name, u.email, u.role, u.created_at
+                  ORDER BY u.created_at DESC, u.id DESC';
+
+        return $this->fetchAll($sql, $params);
+    }
+
+    public function allByCompany(int $companyId): array
+    {
+        return $this->fetchAll(
+            'SELECT
+                u.id,
+                u.company_id,
+                c.name AS company_name,
+                u.full_name,
+                u.email,
+                u.role,
+                u.created_at,
+                GROUP_CONCAT(ue.establishment_id ORDER BY ue.establishment_id SEPARATOR ",") AS assigned_establishments
+             FROM users u
+             LEFT JOIN companies c ON c.id = u.company_id
              LEFT JOIN user_establishments ue ON ue.user_id = u.id
-             GROUP BY u.id, u.full_name, u.email, u.role, u.created_at
-             ORDER BY u.created_at DESC, u.id DESC'
+             WHERE u.company_id = :company_id AND u.role <> "superusuario"
+             GROUP BY u.id, u.company_id, c.name, u.full_name, u.email, u.role, u.created_at
+             ORDER BY u.created_at DESC, u.id DESC',
+            [':company_id' => $companyId]
         );
     }
 
@@ -29,15 +61,18 @@ final class UserRepository extends BaseRepository
         return $this->fetchOne(
             'SELECT
                 u.id,
+                u.company_id,
+                c.name AS company_name,
                 u.full_name,
                 u.email,
                 u.role,
                 u.created_at,
                 GROUP_CONCAT(ue.establishment_id ORDER BY ue.establishment_id SEPARATOR ",") AS assigned_establishments
              FROM users u
+             LEFT JOIN companies c ON c.id = u.company_id
              LEFT JOIN user_establishments ue ON ue.user_id = u.id
              WHERE u.id = :id
-             GROUP BY u.id, u.full_name, u.email, u.role, u.created_at',
+             GROUP BY u.id, u.company_id, c.name, u.full_name, u.email, u.role, u.created_at',
             [':id' => $id]
         );
     }
@@ -47,6 +82,8 @@ final class UserRepository extends BaseRepository
         return $this->fetchOne(
             'SELECT
                 u.id,
+                u.company_id,
+                c.name AS company_name,
                 u.full_name,
                 u.email,
                 u.password_hash,
@@ -54,9 +91,10 @@ final class UserRepository extends BaseRepository
                 u.created_at,
                 GROUP_CONCAT(ue.establishment_id ORDER BY ue.establishment_id SEPARATOR ",") AS assigned_establishments
              FROM users u
+             LEFT JOIN companies c ON c.id = u.company_id
              LEFT JOIN user_establishments ue ON ue.user_id = u.id
              WHERE u.email = :email
-             GROUP BY u.id, u.full_name, u.email, u.password_hash, u.role, u.created_at',
+             GROUP BY u.id, u.company_id, c.name, u.full_name, u.email, u.password_hash, u.role, u.created_at',
             [':email' => $email]
         );
     }
@@ -77,9 +115,10 @@ final class UserRepository extends BaseRepository
     public function create(array $payload): array
     {
         $this->execute(
-            'INSERT INTO users (full_name, email, password_hash, role)
-             VALUES (:full_name, :email, :password_hash, :role)',
+            'INSERT INTO users (company_id, full_name, email, password_hash, role)
+             VALUES (:company_id, :full_name, :email, :password_hash, :role)',
             [
+                ':company_id' => $payload['company_id'],
                 ':full_name' => $payload['full_name'],
                 ':email' => $payload['email'],
                 ':password_hash' => $payload['password_hash'],
@@ -96,6 +135,7 @@ final class UserRepository extends BaseRepository
     public function update(int $id, array $payload): array
     {
         $fields = [
+            'company_id = :company_id',
             'full_name = :full_name',
             'email = :email',
             'role = :role',
@@ -103,6 +143,7 @@ final class UserRepository extends BaseRepository
 
         $params = [
             ':id' => $id,
+            ':company_id' => $payload['company_id'],
             ':full_name' => $payload['full_name'],
             ':email' => $payload['email'],
             ':role' => $payload['role'],

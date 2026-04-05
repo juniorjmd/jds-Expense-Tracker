@@ -1,14 +1,21 @@
 # Acceptance Criteria
 
-- the repository has a single git history at the project root for backend and frontend work
-- `frontend/.git` no longer exists
-- the backend has an active bootstrap flow centered on `backend/public/index.php`
-- the backend exposes route definitions for:
-  - `GET /api/health`
-  - `GET /api/categories`
-  - `GET /api/transactions`
-  - `POST /api/transactions`
-  - `DELETE /api/transactions/{id}`
-  - `GET /api/summary`
-- the new active backend files pass `php -l`
-- the PR includes explicit documentation of specs, implementation details, and acceptance criteria
+- the repository is managed from the project root for both backend and frontend
+- the backend supports one shared database with company-aware relationships
+- every transaction is stored with both `company_id` and `establishment_id`
+- a `superusuario` can:
+  - list companies
+  - create a company
+  - create the initial company administrator
+- a normal `administrador`:
+  - only sees users from their own company
+  - only sees establishments from their own company
+  - cannot manage companies
+- the `superusuario` does not see cross-company operational detail by default on the dashboard
+- to inspect another company's operational detail, the `superusuario` must enter that company explicitly
+- each explicit company inspection by the `superusuario` creates an audit record
+- the Angular frontend exposes company maintenance and company-detail pages
+- the main views share the updated visual system and controlled card layouts
+- `php backend/scripts/apply_schema.php` completes successfully
+- key new backend files pass `php -l`
+- `npm run build` completes successfully

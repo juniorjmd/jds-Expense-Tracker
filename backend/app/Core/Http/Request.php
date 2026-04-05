@@ -51,6 +51,11 @@ final class Request
         return $this->headers;
     }
 
+    public function header(string $key, mixed $default = null): mixed
+    {
+        return $this->headers[strtolower($key)] ?? $default;
+    }
+
     public function body(): array
     {
         return $this->body;

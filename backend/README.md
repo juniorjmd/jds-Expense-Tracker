@@ -1,41 +1,98 @@
-# JDS Car Wash Backend V2
+# Backend
 
-Nuevo backend modular de **JDS Car Wash POS + Inventario**, creado para reemplazar progresivamente el backend legacy actual sin romper el frontend existente.
+Backend API en PHP para el Expense Tracker, preparado como base funcional de un futuro SaaS.
 
-## Objetivo
+## Responsabilidad
 
-Este repositorio contiene la nueva arquitectura del backend, orientada a:
+Este desarrollo se encarga de:
 
-- migrar gradualmente la lógica del sistema legacy
-- mantener compatibilidad funcional mientras dura la transición
-- separar responsabilidades por módulos
-- mejorar mantenibilidad, seguridad y escalabilidad
+- autenticacion
+- usuarios y roles
+- establecimientos
+- transacciones
+- gastos predeterminados
+- resumen mensual
+- acceso a MySQL mediante PDO
 
-## Estado del proyecto
+## Stack tecnico
 
-Actualmente el proyecto ya cuenta con una base funcional:
+- PHP 8
+- Composer
+- `vlucas/phpdotenv`
+- MySQL
+- arquitectura propia con `Request`, `Response`, `Router`, `Service` y `Repository`
 
-- Composer + autoload PSR-4
-- `public/index.php` como front controller
-- `Request`
-- `Response`
-- `Router`
-- `.env` + `Connection`
-- `BaseRepository`
-- `QueryBuilder`
-- soporte base para expresiones y subqueries
-- módulo `Auth` parcialmente migrado
-  - `login` funcionando
-  - `validatekey` funcionando
-
-## Arquitectura
-
-El proyecto sigue esta estructura:
+## Estructura principal
 
 ```text
-HTTP
-→ Router
-→ Controller
-→ Service
-→ Repository
-→ Database
+backend/
+├── app/
+│   ├── Bootstrap/
+│   ├── Controllers/
+│   ├── Core/
+│   ├── Repositories/
+│   └── Services/
+├── database/
+│   └── schema.sql
+├── public/
+│   └── index.php
+└── scripts/
+    └── apply_schema.php
+```
+
+## Endpoints principales
+
+- `POST /api/auth/login`
+- `GET /api/establishments`
+- `POST /api/establishments`
+- `GET /api/establishments/{id}/transactions`
+- `POST /api/establishments/{id}/transactions`
+- `GET /api/establishments/{id}/expense-templates`
+- `POST /api/establishments/{id}/expense-templates`
+- `POST /api/expense-templates/{id}/apply`
+- `GET /api/users`
+- `POST /api/users`
+- `PUT /api/users/{id}`
+- `GET /api/summary`
+
+## Base de datos
+
+La conexion se toma desde `backend/.env`.
+
+El esquema actual crea estas tablas principales:
+
+- `users`
+- `establishments`
+- `user_establishments`
+- `categories`
+- `expense_templates`
+- `transactions`
+
+Para aplicar el esquema:
+
+```powershell
+php backend\scripts\apply_schema.php
+```
+
+## Consideraciones SaaS
+
+La base actual ya contempla piezas utiles para una evolucion SaaS:
+
+- roles de usuario
+- asignacion de usuarios a establecimientos
+- separacion de modulos de negocio
+- API desacoplada del frontend
+
+Para una siguiente etapa SaaS se recomienda agregar:
+
+- tabla de `tenants` o `companies`
+- relacion de establecimientos por tenant
+- aislamiento de datos por tenant
+- sesiones/tokenizacion real
+- billing y planes
+
+## Notas
+
+- el backend hoy funciona publicado en `http://localhost/expense-tracker-back/api/`
+- el archivo `schema.sql` incluye datos semilla para acceso inicial
+- hay restos legacy importados de otro proyecto, pero la API activa del Expense Tracker ya usa su propio flujo

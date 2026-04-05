@@ -7,21 +7,30 @@ use App\Core\Database\BaseRepository;
 
 final class ExpenseTemplateRepository extends BaseRepository
 {
-    public function byEstablishment(int $establishmentId): array
+    public function byEstablishment(int $establishmentId, ?int $companyId = null): array
     {
-        return $this->fetchAll(
-            'SELECT id, establishment_id, category, description, amount, created_at
+        $sql = 'SELECT id, company_id, establishment_id, category, description, amount, created_at
              FROM expense_templates
-             WHERE establishment_id = :establishment_id
-             ORDER BY created_at DESC, id DESC',
-            [':establishment_id' => $establishmentId]
+             WHERE establishment_id = :establishment_id';
+        $params = [':establishment_id' => $establishmentId];
+
+        if ($companyId !== null) {
+            $sql .= ' AND company_id = :company_id';
+            $params[':company_id'] = $companyId;
+        }
+
+        $sql .= ' ORDER BY created_at DESC, id DESC';
+
+        return $this->fetchAll(
+            $sql,
+            $params
         );
     }
 
     public function find(int $id): ?array
     {
         return $this->fetchOne(
-            'SELECT id, establishment_id, category, description, amount, created_at
+            'SELECT id, company_id, establishment_id, category, description, amount, created_at
              FROM expense_templates
              WHERE id = :id',
             [':id' => $id]
@@ -31,9 +40,10 @@ final class ExpenseTemplateRepository extends BaseRepository
     public function create(array $payload): array
     {
         $this->execute(
-            'INSERT INTO expense_templates (establishment_id, category, description, amount)
-             VALUES (:establishment_id, :category, :description, :amount)',
+            'INSERT INTO expense_templates (company_id, establishment_id, category, description, amount)
+             VALUES (:company_id, :establishment_id, :category, :description, :amount)',
             [
+                ':company_id' => $payload['company_id'],
                 ':establishment_id' => $payload['establishment_id'],
                 ':category' => $payload['category'],
                 ':description' => $payload['description'] ?? null,

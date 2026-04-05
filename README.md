@@ -1,33 +1,57 @@
-# jds-Expense-Tracker
+# Expense Tracker SaaS
 
-Expense tracker web application built with **PHP** on the backend and **Angular** on the frontend.
+Plataforma web para controlar ingresos, gastos y operaciones por establecimiento desde una sola cuenta.
 
-The product direction is based on a Figma reference and a sample implementation originally exported in React, but this repository will be implemented with its own architecture in **Angular + Tailwind** and **PHP + MySQL**.
+Este proyecto esta pensado como la base de un SaaS, es decir, una aplicacion que pueda crecer para atender multiples negocios, sucursales y usuarios con distintos permisos desde una misma plataforma.
 
-## Current Direction
+## Que puede hacer hoy
 
-- `backend/`: PHP API foundation using custom bootstrap, HTTP helpers, routing, PDO connection utilities, and reusable query helpers.
-- `frontend/`: workspace that will host the Angular application and Tailwind-based UI implementation.
-- `database/`: SQL assets for the expense tracker domain.
-- `docs/`: project notes and supporting documentation.
+- iniciar sesion con usuarios del sistema
+- administrar establecimientos
+- registrar ingresos y gastos por establecimiento
+- crear gastos predeterminados para agilizar capturas repetitivas
+- consultar resumen mensual consolidado
+- administrar usuarios y permisos
 
-## Goal
+## Como se usa
 
-Build a maintainable expense tracker that supports:
+En ambiente local, la aplicacion esta publicada asi:
 
-- authentication
-- transaction management
-- categories
-- monthly summaries
-- dashboard metrics
-- responsive UI
+- frontend: `http://localhost/expense-tracker/`
+- backend API: `http://localhost/expense-tracker-back/api/`
 
-## Backend Notes
+Acceso inicial:
 
-The backend currently preserves reusable infrastructure from a previous PHP project, but the legacy routing and module surface are being separated from the active expense-tracker API.
+- usuario: `admin@sistema.com`
+- clave: `admin123`
 
-Use `backend/.env.example` as the reference for local environment setup.
+## Estructura general
 
-## Frontend Notes
+- `frontend/`: interfaz web de la plataforma
+- `backend/`: API, logica de negocio y acceso a base de datos
+- `pr-features/`: documentos funcionales del avance realizado
 
-The frontend is being normalized under the main repository so future Angular work, Tailwind integration, and PR review happen from a single global git history.
+## Vision SaaS
+
+La intencion del producto no es quedarse como una app cerrada de un solo negocio. La base actual ya apunta a una evolucion SaaS con estos principios:
+
+- multiples establecimientos por cuenta
+- usuarios con roles y permisos
+- separacion clara entre frontend, backend y base de datos
+- posibilidad de agregar mas modulos sin rehacer la plataforma
+- camino abierto para multiempresa o multi tenant en una siguiente etapa
+
+## Siguientes pasos recomendados
+
+- separar formalmente cuentas o tenants
+- agregar recuperacion de contrasena y gestion de sesiones
+- auditar permisos por modulo
+- agregar facturacion, planes o suscripciones
+- preparar despliegue cloud con dominio, SSL y backups
+
+## Documentacion tecnica
+
+La parte tecnica detallada vive dentro de cada desarrollo:
+
+- [backend/README.md](c:\desarrollo\back\php\proyecto-jds-Expense-Tracker\backend\README.md)
+- [frontend/README.md](c:\desarrollo\back\php\proyecto-jds-Expense-Tracker\frontend\README.md)
