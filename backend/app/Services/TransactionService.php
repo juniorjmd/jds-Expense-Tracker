@@ -3,41 +3,37 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Repositories\EstablishmentRepository;
 use App\Repositories\TransactionRepository;
 use InvalidArgumentException;
 
 final class TransactionService
 {
     public function __construct(
-        private readonly TransactionRepository $repository = new TransactionRepository()
+        private readonly TransactionRepository $repository = new TransactionRepository(),
+        private readonly EstablishmentRepository $establishmentRepository = new EstablishmentRepository()
     ) {
     }
 
-    public function list(?string $type = null, ?string $month = null): array
+    public function listByEstablishment(int $establishmentId): array
     {
-        $normalizedType = $type !== null ? strtolower(trim($type)) : null;
-        if (!in_array($normalizedType, [null, '', 'income', 'expense'], true)) {
-            $normalizedType = null;
-        }
+        $this->assertEstablishment($establishmentId);
 
-        $normalizedMonth = $month !== null ? trim($month) : null;
-        if ($normalizedMonth !== null && preg_match('/^\d{4}-\d{2}$/', $normalizedMonth) !== 1) {
-            $normalizedMonth = null;
-        }
-
-        return $this->repository->all($normalizedType ?: null, $normalizedMonth);
+        return array_map([$this, 'mapTransaction'], $this->repository->byEstablishment($establishmentId));
     }
 
-    public function create(array $payload): array
+    public function create(int $establishmentId, array $payload): array
     {
+        $this->assertEstablishment($establishmentId);
+
         $type = strtolower(trim((string) ($payload['type'] ?? 'expense')));
         if (!in_array($type, ['income', 'expense'], true)) {
             throw new InvalidArgumentException('El tipo debe ser income o expense.');
         }
 
-        $title = trim((string) ($payload['title'] ?? ''));
-        if ($title === '') {
-            throw new InvalidArgumentException('El titulo es obligatorio.');
+        $category = trim((string) ($payload['category'] ?? ''));
+        if ($category === '') {
+            throw new InvalidArgumentException('La categoria es obligatoria.');
         }
 
         $amount = (float) ($payload['amount'] ?? 0);
@@ -50,19 +46,17 @@ final class TransactionService
             throw new InvalidArgumentException('La fecha debe tener formato YYYY-MM-DD.');
         }
 
-        $categoryId = $payload['category_id'] ?? null;
-        if ($categoryId !== null && $categoryId !== '' && (!is_numeric($categoryId) || (int) $categoryId < 1)) {
-            throw new InvalidArgumentException('La categoria es invalida.');
-        }
-
-        return $this->repository->create([
-            'category_id' => $categoryId !== null && $categoryId !== '' ? (int) $categoryId : null,
+        $created = $this->repository->create([
+            'establishment_id' => $establishmentId,
             'type' => $type,
-            'title' => $title,
+            'category' => $category,
+            'description' => trim((string) ($payload['description'] ?? '')),
             'amount' => round($amount, 2),
             'transaction_date' => $transactionDate,
-            'notes' => isset($payload['notes']) ? trim((string) $payload['notes']) : null,
+            'from_template' => !empty($payload['from_template']),
         ]);
+
+        return $this->mapTransaction($created);
     }
 
     public function delete(int $id): bool
@@ -76,10 +70,62 @@ final class TransactionService
 
     public function summary(string $month): array
     {
-        if (preg_match('/^\d{4}-\d{2}$/', $month) !== 1) {
-            $month = date('Y-m');
+        $normalizedMonth = preg_match('/^\d{4}-\d{2}$/', $month) === 1 ? $month : date('Y-m');
+        $totals = $this->repository->monthlyTotals($normalizedMonth);
+        $income = (float) ($totals['income'] ?? 0);
+        $expense = (float) ($totals['expense'] ?? 0);
+        $months = array_map(
+            static fn (array $row): string => (string) $row['month'],
+            $this->repository->availableMonths()
+        );
+
+        if (!in_array(date('Y-m'), $months, true)) {
+            array_unshift($months, date('Y-m'));
+            $months = array_values(array_unique($months));
         }
 
-        return $this->repository->summary($month);
+        $breakdown = array_map(static function (array $row): array {
+            $income = (float) ($row['income'] ?? 0);
+            $expense = (float) ($row['expense'] ?? 0);
+
+            return [
+                'id' => (string) $row['id'],
+                'name' => (string) $row['name'],
+                'income' => $income,
+                'expense' => $expense,
+                'balance' => $income - $expense,
+            ];
+        }, $this->repository->monthlyBreakdown($normalizedMonth));
+
+        return [
+            'month' => $normalizedMonth,
+            'income' => $income,
+            'expense' => $expense,
+            'balance' => $income - $expense,
+            'months' => $months,
+            'breakdown' => $breakdown,
+        ];
+    }
+
+    private function assertEstablishment(int $establishmentId): void
+    {
+        if ($establishmentId < 1 || $this->establishmentRepository->find($establishmentId, date('Y-m')) === null) {
+            throw new InvalidArgumentException('El establecimiento no existe.');
+        }
+    }
+
+    private function mapTransaction(array $row): array
+    {
+        return [
+            'id' => (string) $row['id'],
+            'establishmentId' => (string) $row['establishment_id'],
+            'type' => (string) $row['type'],
+            'amount' => (float) $row['amount'],
+            'category' => (string) $row['category'],
+            'description' => (string) ($row['description'] ?? ''),
+            'date' => (string) $row['transaction_date'],
+            'fromTemplate' => (bool) $row['from_template'],
+            'createdAt' => (string) $row['created_at'],
+        ];
     }
 }

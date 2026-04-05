@@ -5,13 +5,13 @@ namespace App\Controllers;
 
 use App\Core\Http\Request;
 use App\Core\Http\Response;
-use App\Services\TransactionService;
+use App\Services\ExpenseTemplateService;
 use InvalidArgumentException;
 
-final class TransactionController
+final class ExpenseTemplateController
 {
     public function __construct(
-        private readonly TransactionService $service = new TransactionService()
+        private readonly ExpenseTemplateService $service = new ExpenseTemplateService()
     ) {
     }
 
@@ -33,12 +33,19 @@ final class TransactionController
         }
     }
 
+    public function apply(Request $request): void
+    {
+        try {
+            Response::created($this->service->apply((int) $request->route('id', 0)));
+        } catch (InvalidArgumentException $exception) {
+            Response::fail('VALIDATION_ERROR', $exception->getMessage(), 422);
+        }
+    }
+
     public function destroy(Request $request): void
     {
-        $deleted = $this->service->delete((int) $request->route('id', 0));
-
-        if (!$deleted) {
-            Response::fail('TRANSACTION_NOT_FOUND', 'La transaccion no existe', 404);
+        if (!$this->service->delete((int) $request->route('id', 0))) {
+            Response::fail('EXPENSE_TEMPLATE_NOT_FOUND', 'El gasto predeterminado no existe.', 404);
         }
 
         Response::ok(['deleted' => true]);

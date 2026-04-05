@@ -4,101 +4,90 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use App\Core\Database\BaseRepository;
-use App\Core\Database\QueryBuilder;
 
 final class TransactionRepository extends BaseRepository
 {
-    public function all(?string $type = null, ?string $month = null): array
+    public function byEstablishment(int $establishmentId): array
     {
-        $builder = (new QueryBuilder())
-            ->table('transactions')
-            ->select([
-                'id',
-                'category_id',
-                'type',
-                'title',
-                'amount',
-                'transaction_date',
-                'notes',
-                'created_at',
-            ])
-            ->orderBy('transaction_date', 'DESC')
-            ->orderBy('id', 'DESC');
-
-        if ($type !== null && $type !== '') {
-            $builder->where('type', '=', $type);
-        }
-
-        if ($month !== null && preg_match('/^\d{4}-\d{2}$/', $month) === 1) {
-            $builder->where('transaction_date', '>=', $month . '-01');
-            $builder->where('transaction_date', '<=', date('Y-m-t', strtotime($month . '-01')));
-        }
-
-        return $this->fetchAll($builder->toSql(), $builder->getParams());
-    }
-
-    public function create(array $payload): array
-    {
-        $sql = 'INSERT INTO transactions (category_id, type, title, amount, transaction_date, notes)
-                VALUES (:category_id, :type, :title, :amount, :transaction_date, :notes)';
-
-        $this->execute($sql, [
-            ':category_id' => $payload['category_id'] ?: null,
-            ':type' => $payload['type'],
-            ':title' => $payload['title'],
-            ':amount' => $payload['amount'],
-            ':transaction_date' => $payload['transaction_date'],
-            ':notes' => $payload['notes'] ?? null,
-        ]);
-
-        $id = (int) $this->db->lastInsertId();
-
-        return $this->find($id) ?? [];
+        return $this->fetchAll(
+            'SELECT id, establishment_id, type, category, description, amount, transaction_date, from_template, created_at
+             FROM transactions
+             WHERE establishment_id = :establishment_id
+             ORDER BY transaction_date DESC, id DESC',
+            [':establishment_id' => $establishmentId]
+        );
     }
 
     public function find(int $id): ?array
     {
         return $this->fetchOne(
-            'SELECT id, category_id, type, title, amount, transaction_date, notes, created_at
+            'SELECT id, establishment_id, type, category, description, amount, transaction_date, from_template, created_at
              FROM transactions
              WHERE id = :id',
             [':id' => $id]
         );
     }
 
-    public function delete(int $id): bool
+    public function create(array $payload): array
     {
-        return $this->execute(
-            'DELETE FROM transactions WHERE id = :id',
-            [':id' => $id]
-        );
-    }
-
-    public function summary(string $month): array
-    {
-        $startDate = $month . '-01';
-        $endDate = date('Y-m-t', strtotime($startDate));
-
-        $result = $this->fetchOne(
-            'SELECT
-                COALESCE(SUM(CASE WHEN type = "income" THEN amount END), 0) AS total_income,
-                COALESCE(SUM(CASE WHEN type = "expense" THEN amount END), 0) AS total_expense
-             FROM transactions
-             WHERE transaction_date BETWEEN :start_date AND :end_date',
+        $this->execute(
+            'INSERT INTO transactions (establishment_id, type, category, description, amount, transaction_date, from_template)
+             VALUES (:establishment_id, :type, :category, :description, :amount, :transaction_date, :from_template)',
             [
-                ':start_date' => $startDate,
-                ':end_date' => $endDate,
+                ':establishment_id' => $payload['establishment_id'],
+                ':type' => $payload['type'],
+                ':category' => $payload['category'],
+                ':description' => $payload['description'] ?? null,
+                ':amount' => $payload['amount'],
+                ':transaction_date' => $payload['transaction_date'],
+                ':from_template' => !empty($payload['from_template']) ? 1 : 0,
             ]
         );
 
-        $income = (float) ($result['total_income'] ?? 0);
-        $expense = (float) ($result['total_expense'] ?? 0);
+        return $this->find((int) $this->db->lastInsertId()) ?? [];
+    }
 
-        return [
-            'month' => $month,
-            'income' => $income,
-            'expense' => $expense,
-            'balance' => $income - $expense,
-        ];
+    public function delete(int $id): bool
+    {
+        return $this->execute('DELETE FROM transactions WHERE id = :id', [':id' => $id]);
+    }
+
+    public function availableMonths(): array
+    {
+        return $this->fetchAll(
+            'SELECT DISTINCT DATE_FORMAT(transaction_date, "%Y-%m") AS month
+             FROM transactions
+             ORDER BY month DESC'
+        );
+    }
+
+    public function monthlyTotals(string $month): array
+    {
+        return $this->fetchOne(
+            'SELECT
+                COALESCE(SUM(CASE WHEN type = "income" THEN amount ELSE 0 END), 0) AS income,
+                COALESCE(SUM(CASE WHEN type = "expense" THEN amount ELSE 0 END), 0) AS expense
+             FROM transactions
+             WHERE DATE_FORMAT(transaction_date, "%Y-%m") = :month',
+            [':month' => $month]
+        ) ?? ['income' => 0, 'expense' => 0];
+    }
+
+    public function monthlyBreakdown(string $month): array
+    {
+        return $this->fetchAll(
+            'SELECT
+                e.id,
+                e.name,
+                COALESCE(SUM(CASE WHEN t.type = "income" THEN t.amount ELSE 0 END), 0) AS income,
+                COALESCE(SUM(CASE WHEN t.type = "expense" THEN t.amount ELSE 0 END), 0) AS expense
+             FROM establishments e
+             LEFT JOIN transactions t
+                ON t.establishment_id = e.id
+               AND DATE_FORMAT(t.transaction_date, "%Y-%m") = :month
+             GROUP BY e.id, e.name
+             ORDER BY e.name ASC',
+            [':month' => $month]
+        );
     }
 }

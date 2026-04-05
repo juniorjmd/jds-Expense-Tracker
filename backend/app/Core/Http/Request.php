@@ -20,7 +20,7 @@ final class Request
     {
         $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
         $uri = $_SERVER['REQUEST_URI'] ?? '/';
-        $path = (string) parse_url($uri, PHP_URL_PATH);
+        $path = self::normalizePath((string) parse_url($uri, PHP_URL_PATH));
         $headers = self::getHeaders();
         $query = $_GET ?? [];
         $body = self::parseBody($headers);
@@ -127,5 +127,29 @@ final class Request
         }
 
         return $headers;
+    }
+
+    private static function normalizePath(string $path): string
+    {
+        $scriptName = (string) ($_SERVER['SCRIPT_NAME'] ?? '');
+        $basePath = trim(str_replace('\\', '/', dirname($scriptName)), '/');
+        $normalizedPath = '/' . trim($path, '/');
+
+        if ($basePath !== '' && str_starts_with($normalizedPath, '/' . $basePath)) {
+            $normalizedPath = substr($normalizedPath, strlen('/' . $basePath)) ?: '/';
+        }
+
+        if (str_starts_with($normalizedPath, '/public/')) {
+            $normalizedPath = substr($normalizedPath, strlen('/public')) ?: '/';
+        }
+
+        $apiPosition = strpos($normalizedPath, '/api/');
+        if ($apiPosition !== false) {
+            $normalizedPath = substr($normalizedPath, $apiPosition) ?: '/';
+        } elseif (str_ends_with($normalizedPath, '/api')) {
+            $normalizedPath = '/api';
+        }
+
+        return $normalizedPath !== '' ? $normalizedPath : '/';
     }
 }

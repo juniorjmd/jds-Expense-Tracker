@@ -35,7 +35,21 @@ final class Router
             return;
         }
 
-        Response::fail('ROUTE_NOT_FOUND', 'Ruta no encontrada', 404);
+        $debug = ($_ENV['APP_DEBUG'] ?? 'false') === 'true';
+
+        Response::fail(
+            'ROUTE_NOT_FOUND',
+            'Ruta no encontrada',
+            404,
+            $debug ? [
+                'path' => $request->path(),
+                'method' => $request->method(),
+                'knownRoutes' => array_map(
+                    static fn (array $route): string => strtoupper((string) $route[0]) . ' ' . (string) $route[1],
+                    $this->routes
+                ),
+            ] : null
+        );
     }
 
     private function match(string $pattern, string $path): ?array
