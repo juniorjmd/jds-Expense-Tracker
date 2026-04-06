@@ -4,6 +4,8 @@ Plataforma web para controlar ingresos, gastos y operaciones por establecimiento
 
 Este proyecto esta pensado como la base de un SaaS, es decir, una aplicacion que pueda crecer para atender multiples negocios, sucursales y usuarios con distintos permisos desde una misma plataforma.
 
+Version publicada actual: `1.0.0.1`
+
 ## Que puede hacer hoy
 
 - iniciar sesion con usuarios del sistema

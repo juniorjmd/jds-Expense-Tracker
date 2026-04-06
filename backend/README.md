@@ -74,6 +74,20 @@ Para aplicar el esquema:
 php backend\scripts\apply_schema.php
 ```
 
+## CORS y dominios
+
+El backend acepta origenes configurables desde `backend/.env` usando:
+
+- `APP_FRONTEND_URL`
+- `APP_CORS_ALLOWED_ORIGINS`
+
+En produccion actual, la idea es publicar:
+
+- frontend: `https://expense-tracker.sofdla.net`
+- backend: `https://expense-tracker-php.sofdla.net/api`
+
+El backend ya contempla CORS por lista de dominios y soporte para el header `X-User-Id`.
+
 ## Consideraciones SaaS
 
 La base actual ya contempla piezas utiles para una evolucion SaaS:
@@ -85,11 +99,11 @@ La base actual ya contempla piezas utiles para una evolucion SaaS:
 
 Para una siguiente etapa SaaS se recomienda agregar:
 
-- tabla de `tenants` o `companies`
-- relacion de establecimientos por tenant
-- aislamiento de datos por tenant
+- billing real
+- feature flags por plan
 - sesiones/tokenizacion real
-- billing y planes
+- observabilidad y auditoria extendida
+- automatizacion de despliegues por ambiente
 
 ## Notas
 

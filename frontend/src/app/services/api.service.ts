@@ -13,9 +13,17 @@ interface ApiResponse<T> {
   error: ApiErrorPayload | null;
 }
 
+declare global {
+  interface Window {
+    __APP_CONFIG__?: {
+      apiBaseUrl?: string;
+    };
+  }
+}
+
 @Injectable({ providedIn: 'root' })
 export class ApiService {
-  private readonly baseUrl = `${window.location.origin}/expense-tracker-back/api`;
+  private readonly baseUrl = this.resolveBaseUrl();
 
   constructor(private readonly http: HttpClient) {}
 
@@ -47,6 +55,19 @@ export class ApiService {
     } catch {
       return new HttpHeaders();
     }
+  }
+
+  private resolveBaseUrl(): string {
+    const runtimeConfigured = window.__APP_CONFIG__?.apiBaseUrl?.trim();
+    if (runtimeConfigured) {
+      return runtimeConfigured.replace(/\/+$/, '');
+    }
+
+    if (window.location.hostname === 'expense-tracker.sofdla.net') {
+      return 'https://expense-tracker-php.sofdla.net/api';
+    }
+
+    return `${window.location.origin}/expense-tracker-back/api`;
   }
 
   private async unwrap<T>(promise: Promise<ApiResponse<T>>): Promise<T> {

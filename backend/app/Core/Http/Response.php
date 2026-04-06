@@ -50,10 +50,30 @@ final class Response
 
     private static function sendCors(): void
     {
-        $origin = $_ENV['APP_CORS_ORIGIN'] ?? '*';
-
+        $origin = self::resolveAllowedOrigin();
+        header('Vary: Origin');
         header("Access-Control-Allow-Origin: {$origin}");
         header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-        header('Access-Control-Allow-Headers: Content-Type, Authorization');
+        header('Access-Control-Allow-Headers: Content-Type, Authorization, X-User-Id');
+    }
+
+    private static function resolveAllowedOrigin(): string
+    {
+        $configured = trim((string) ($_ENV['APP_CORS_ALLOWED_ORIGINS'] ?? ($_ENV['APP_CORS_ORIGIN'] ?? '*')));
+        if ($configured === '' || $configured === '*') {
+            return '*';
+        }
+
+        $requestOrigin = trim((string) ($_SERVER['HTTP_ORIGIN'] ?? ''));
+        $allowedOrigins = array_values(array_filter(array_map(
+            static fn (string $item): string => trim($item),
+            explode(',', $configured)
+        )));
+
+        if ($requestOrigin !== '' && in_array($requestOrigin, $allowedOrigins, true)) {
+            return $requestOrigin;
+        }
+
+        return $allowedOrigins[0] ?? '*';
     }
 }

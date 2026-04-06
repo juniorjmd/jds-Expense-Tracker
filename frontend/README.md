@@ -77,9 +77,16 @@ La comunicacion con la API se centraliza en:
 
 - `src/app/services/api.service.ts`
 
-La URL base usada actualmente es:
+La URL base puede resolverse de tres formas:
 
-- `http://localhost/expense-tracker-back/api`
+- por `window.__APP_CONFIG__.apiBaseUrl` en `public/runtime-config.js`
+- por hostname conocido de produccion
+- por fallback local a `http://localhost/expense-tracker-back/api`
+
+En produccion actual, el objetivo es:
+
+- frontend: `https://expense-tracker.sofdla.net`
+- backend: `https://expense-tracker-php.sofdla.net/api`
 
 ## Consideraciones SaaS
 
