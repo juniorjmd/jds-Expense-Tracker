@@ -19,14 +19,14 @@ final class Database
         }
 
         $config = require dirname(__DIR__) . '/Config/database.php';
+        $port = trim((string) ($config['port'] ?? '3306'));
+        $useDefaultPort = $port === '' || strtolower($port) === 'default';
 
-        $dsn = sprintf(
-            '%s:host=%s;port=%s;dbname=%s;charset=utf8mb4',
-            $config['driver'],
-            $config['host'],
-            $config['port'],
-            $config['database']
-        );
+        $dsn = sprintf('%s:host=%s;', $config['driver'], $config['host']);
+        if (!$useDefaultPort) {
+            $dsn .= sprintf('port=%s;', $port);
+        }
+        $dsn .= sprintf('dbname=%s;charset=utf8mb4', $config['database']);
 
         try {
             self::$connection = new PDO($dsn, $config['username'], $config['password'], [

@@ -10,18 +10,18 @@ import { AuthService } from '../services/auth.service';
   imports: [CommonModule, FormsModule],
   template: `
     <div class="login-shell">
-      <section class="login-card">
-        <button
-          class="help-button"
-          type="button"
-          (click)="toggleHelp()"
-          [attr.aria-expanded]="showHelp"
-          aria-controls="login-help"
-          aria-label="Mostrar ayuda sobre la aplicacion"
-        >
-          ?
-        </button>
+      <button
+        class="help-trigger"
+        type="button"
+        (click)="toggleHelp()"
+        [attr.aria-expanded]="showHelp"
+        aria-controls="login-help-dialog"
+        aria-label="Mostrar ayuda sobre la aplicacion"
+      >
+        ?
+      </button>
 
+      <section class="login-card">
         <div class="brand-line">
           <p class="eyebrow">Expense Tracker SaaS</p>
           <span class="status-pill">Ingreso</span>
@@ -31,19 +31,29 @@ import { AuthService } from '../services/auth.service';
 
         <label>
           <span>Email</span>
-          <input [(ngModel)]="email" type="email" placeholder="admin&#64;sistema.com">
+          <input [(ngModel)]="email" type="email" placeholder="correo&#64;empresa.com">
         </label>
 
         <label>
           <span>Contrasena</span>
-          <input [(ngModel)]="password" type="password" placeholder="admin123">
+          <input [(ngModel)]="password" type="password" placeholder="Ingresa tu contrasena">
         </label>
 
         <p *ngIf="error" class="error">{{ error }}</p>
 
         <button class="btn" type="button" (click)="submit()">Entrar</button>
+      </section>
 
-        <section *ngIf="showHelp" id="login-help" class="help-panel">
+      <div *ngIf="showHelp" class="help-overlay" (click)="closeHelp()">
+        <section
+          id="login-help-dialog"
+          class="help-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Informacion sobre la aplicacion"
+          (click)="$event.stopPropagation()"
+        >
+          <button class="help-close" type="button" (click)="closeHelp()" aria-label="Cerrar ayuda">×</button>
           <div class="help-copy">
             <strong>Sobre la aplicacion</strong>
             <p>Plataforma para administrar empresas, establecimientos y movimientos financieros en un entorno multiempresa.</p>
@@ -52,12 +62,8 @@ import { AuthService } from '../services/auth.service';
             <strong>Funciones principales</strong>
             <p>Incluye seguimiento operativo, control de accesos y paneles para el manejo diario de la operacion.</p>
           </div>
-          <div class="help-copy demo-copy">
-            <strong>Acceso demo</strong>
-            <p>admin&#64;sistema.com<br>admin123</p>
-          </div>
         </section>
-      </section>
+      </div>
     </div>
   `,
   styles: [`
@@ -67,8 +73,8 @@ import { AuthService } from '../services/auth.service';
     .login-shell::after { width: 420px; height: 420px; right: 2%; bottom: 4%; background: radial-gradient(circle, rgba(106,166,217,.28), transparent 70%); }
     .login-card { width: min(540px, 100%); position: relative; overflow: hidden; background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(241,245,249,.90)); border: 1px solid rgba(71, 85, 105, .16); border-radius: 32px; padding: 36px; display: grid; gap: 18px; box-shadow: 0 32px 90px rgba(15, 23, 42, .16); backdrop-filter: blur(18px); }
     .login-card::before { content: ""; position: absolute; inset: 0 auto auto 0; width: 100%; height: 6px; background: linear-gradient(90deg, #f4a261, #2f6ea5); }
-    .help-button { position:absolute; top:22px; right:22px; width:42px; height:42px; border:1px solid rgba(71, 85, 105, .14); border-radius:999px; background:rgba(255,255,255,.9); color:#24466b; font-size:18px; font-weight:800; cursor:pointer; box-shadow:0 10px 25px rgba(15, 23, 42, .10); }
-    .help-button:hover, .help-button:focus-visible { outline:none; border-color:#6aa6d9; transform:translateY(-1px); }
+    .help-trigger { position: fixed; top: 24px; right: 24px; width: 46px; height: 46px; border: 1px solid rgba(71, 85, 105, .14); border-radius: 999px; background: rgba(255,255,255,.92); color: #24466b; font-size: 18px; font-weight: 800; cursor: pointer; box-shadow: 0 12px 30px rgba(15, 23, 42, .14); z-index: 2; }
+    .help-trigger:hover, .help-trigger:focus-visible { outline: none; border-color: #6aa6d9; transform: translateY(-1px); }
     .brand-line { display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap; }
     .eyebrow { margin: 0; text-transform: uppercase; letter-spacing: .22em; font-size: 11px; font-weight: 800; color: #7a6f57; }
     .status-pill { display:inline-flex; align-items:center; padding:8px 12px; border-radius:999px; background:linear-gradient(135deg, rgba(47,110,165,.12), rgba(106,166,217,.24)); color:#24466b; font-size:12px; font-weight:700; }
@@ -80,17 +86,18 @@ import { AuthService } from '../services/auth.service';
     input:focus { outline: 2px solid rgba(106,166,217,.22); border-color: #6aa6d9; }
     .btn { margin-top: 10px; border: 0; border-radius: 999px; padding: 15px 20px; background: linear-gradient(135deg, #0f172a, #2f6ea5); color: #fff; cursor: pointer; font-weight: 700; box-shadow: 0 18px 40px rgba(15, 23, 42, .24); }
     .error { color: var(--danger); font-weight: 600; }
-    .help-panel { display:grid; gap:12px; padding:18px; border-radius:24px; background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(241,245,249,.88)); border:1px solid rgba(71,85,105,.12); }
+    .help-overlay { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(15, 23, 42, .32); backdrop-filter: blur(8px); z-index: 3; }
+    .help-dialog { width: min(460px, 100%); position: relative; display:grid; gap:14px; padding:28px 24px 24px; border-radius:28px; background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(241,245,249,.94)); border:1px solid rgba(71,85,105,.12); box-shadow: 0 28px 70px rgba(15, 23, 42, .22); }
+    .help-close { position: absolute; top: 14px; right: 14px; width: 38px; height: 38px; border: 0; border-radius: 999px; background: rgba(15,23,42,.08); color: #24466b; font-size: 22px; cursor: pointer; }
     .help-copy { display:grid; gap:6px; color:#51627e; }
     .help-copy strong { color:#0f172a; }
     .help-copy p { line-height:1.6; }
-    .demo-copy p { font-weight:700; color:#24466b; }
-    @media (max-width: 640px) { .login-card { padding: 28px 22px; } h1 { max-width:none; } }
+    @media (max-width: 640px) { .login-card { padding: 28px 22px; } .help-trigger { top: 18px; right: 18px; } h1 { max-width:none; } }
   `],
 })
 export class LoginPageComponent {
-  email = 'admin@sistema.com';
-  password = 'admin123';
+  email = '';
+  password = '';
   error = '';
   showHelp = false;
 
@@ -98,6 +105,10 @@ export class LoginPageComponent {
 
   toggleHelp(): void {
     this.showHelp = !this.showHelp;
+  }
+
+  closeHelp(): void {
+    this.showHelp = false;
   }
 
   async submit(): Promise<void> {

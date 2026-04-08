@@ -14,7 +14,7 @@ final class Connection
     {
         if (self::$instance === null) {
             $host = $_ENV['DB_HOST'] ?? '127.0.0.1';
-            $port = $_ENV['DB_PORT'] ?? '3306';
+            $port = trim((string) ($_ENV['DB_PORT'] ?? '3306'));
             $db   = $_ENV['DB_DATABASE'] ?? '';
             $user = $_ENV['DB_USERNAME'] ?? '';
             $pass = $_ENV['DB_PASSWORD'] ?? '';
@@ -22,8 +22,13 @@ final class Connection
             $timeout = (int) ($_ENV['DB_TIMEOUT'] ?? 10);
             $sslMode = strtolower((string) ($_ENV['DB_SSL_MODE'] ?? 'preferred'));
             $sslCa = $_ENV['DB_SSL_CA'] ?? '';
+            $useDefaultPort = $port === '' || strtolower($port) === 'default';
 
-            $dsn = "mysql:host={$host};port={$port};dbname={$db};charset={$charset}";
+            $dsn = "mysql:host={$host};";
+            if (!$useDefaultPort) {
+                $dsn .= "port={$port};";
+            }
+            $dsn .= "dbname={$db};charset={$charset}";
 
             $options = [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -52,7 +57,7 @@ final class Connection
                         '%s [host=%s port=%s ssl_mode=%s timeout=%d]',
                         $e->getMessage(),
                         $host,
-                        $port,
+                        $useDefaultPort ? 'default' : $port,
                         $sslMode,
                         $timeout
                     ),

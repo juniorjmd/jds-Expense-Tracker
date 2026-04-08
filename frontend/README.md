@@ -71,6 +71,8 @@ El build queda en:
 
 El `.htaccess` persistente se copia desde `frontend/public/.htaccess`.
 
+La pantalla de login no publica credenciales ni accesos demo visibles.
+
 ## Integracion con backend
 
 La comunicacion con la API se centraliza en:

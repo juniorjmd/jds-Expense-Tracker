@@ -108,5 +108,5 @@ Para una siguiente etapa SaaS se recomienda agregar:
 ## Notas
 
 - el backend hoy funciona publicado en `http://localhost/expense-tracker-back/api/`
-- el archivo `schema.sql` incluye datos semilla para acceso inicial
+- el archivo `schema.sql` deja la base limpia y solo crea el superusuario inicial
 - hay restos legacy importados de otro proyecto, pero la API activa del Expense Tracker ya usa su propio flujo

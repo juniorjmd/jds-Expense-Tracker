@@ -218,41 +218,9 @@ CREATE TABLE activity_logs (
         ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO companies (name, description) VALUES
-('Demo Company', 'Empresa semilla para pruebas iniciales');
-
 INSERT INTO plans (code, name, description, monthly_price, establishments_limit, users_limit, is_default, is_active) VALUES
 ('free', 'Plan Free', 'Base inicial para una empresa pequena en fase de arranque.', 0.00, 2, 5, 1, 1),
 ('growth', 'Plan Growth', 'Escala operaciones con mas usuarios y establecimientos.', 79.00, 10, 50, 0, 1);
 
 INSERT INTO users (company_id, full_name, email, password_hash, role) VALUES
-(NULL, 'Super Usuario', 'admin@sistema.com', '$2y$10$PyoC.vSuQt9digrMBZ8xzudoR2bdl28IPPJOGh7RGFit08xVQybme', 'superusuario'),
-(1, 'Administrador Demo', 'admin.demo@sistema.com', '$2y$10$PyoC.vSuQt9digrMBZ8xzudoR2bdl28IPPJOGh7RGFit08xVQybme', 'administrador');
-
-INSERT INTO company_subscriptions (company_id, plan_id, status, starts_at, ends_at) VALUES
-(1, 1, 'active', CURDATE(), NULL);
-
-INSERT INTO company_settings (company_id, currency_code, timezone, date_format, branding_name) VALUES
-(1, 'COP', 'America/Bogota', 'Y-m-d', 'Demo Company');
-
-INSERT INTO establishments (company_id, name, description) VALUES
-(1, 'Casa Matriz', 'Operacion principal del negocio'),
-(1, 'Sucursal Norte', 'Punto alterno para ventas y gastos');
-
-INSERT INTO user_establishments (user_id, establishment_id) VALUES
-(2, 1),
-(2, 2);
-
-INSERT INTO categories (name, type, color) VALUES
-('Ventas', 'income', '#10B981'),
-('Servicios', 'expense', '#F59E0B'),
-('Nomina', 'expense', '#EF4444'),
-('Arriendo', 'expense', '#6366F1');
-
-INSERT INTO expense_templates (company_id, establishment_id, category, description, amount) VALUES
-(1, 1, 'Arriendo', 'Pago mensual de arriendo', 900.00);
-
-INSERT INTO transactions (company_id, establishment_id, type, category, description, amount, transaction_date, from_template) VALUES
-(1, 1, 'income', 'Ventas', 'Ingresos semanales', 2450.00, CURDATE(), 0),
-(1, 1, 'expense', 'Nomina', 'Pago de personal', 620.00, CURDATE(), 0),
-(1, 2, 'expense', 'Servicios', 'Internet y energia', 180.00, CURDATE(), 0);
+(NULL, 'Junior Dominguez', 'juniorjm@gmail.com', '$2y$10$1.xGr53flOgTrb3DuoGFfOmgUg2ujvH.Qd.vrs17e90Twu09LTXRK', 'superusuario');

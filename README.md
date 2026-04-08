@@ -22,11 +22,6 @@ En ambiente local, la aplicacion esta publicada asi:
 - frontend: `http://localhost/expense-tracker/`
 - backend API: `http://localhost/expense-tracker-back/api/`
 
-Acceso inicial:
-
-- usuario: `admin@sistema.com`
-- clave: `admin123`
-
 ## Estructura general
 
 - `frontend/`: interfaz web de la plataforma
