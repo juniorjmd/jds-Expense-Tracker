@@ -6,11 +6,12 @@ import { Company, Establishment } from '../models';
 import { AuthService } from '../services/auth.service';
 import { StorageService } from '../services/storage.service';
 import { SummaryService } from '../services/summary.service';
+import { ModalShellComponent } from '../modalsComponent/modal-shell.component';
 
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, ModalShellComponent],
   template: `
     <div class="shell">
       <header class="topbar">
@@ -22,30 +23,29 @@ import { SummaryService } from '../services/summary.service';
 
         <div class="actions">
           <a *ngIf="auth.can('manage-companies')" routerLink="/empresas" class="btn ghost">Empresas</a>
+          <a *ngIf="auth.getCurrentUser()?.role === 'superusuario'" routerLink="/superusuario/clave" class="btn ghost">Clave maestra</a>
           <a *ngIf="auth.can('view-summary') && auth.getCurrentUser()?.role !== 'superusuario'" routerLink="/resumen" class="btn ghost">Resumen</a>
           <a *ngIf="auth.can('manage-users')" routerLink="/usuarios" class="btn ghost">Usuarios</a>
-          <button *ngIf="auth.can('create')" class="btn" type="button" (click)="toggleEstablishmentForm()">
-            {{ showEstablishmentForm ? 'Cancelar' : 'Nuevo establecimiento' }}
-          </button>
+          <button *ngIf="auth.can('create')" class="btn" type="button" (click)="openEstablishmentModal()">Nuevo establecimiento</button>
           <button class="btn ghost" type="button" (click)="logout()">Salir</button>
         </div>
       </header>
 
       <section class="grid metrics">
         <article class="metric">
-          <span>{{ auth.getCurrentUser()?.role === 'superusuario' ? 'Empresas' : 'Establecimientos' }}</span>
-          <strong>{{ auth.getCurrentUser()?.role === 'superusuario' ? companies.length : establishments.length }}</strong>
+          <span>{{ auth.getCurrentUser()?.role === 'superusuario' ? 'Empresas' : auth.getCurrentUser()?.role === 'administrador' ? 'Empresas asignadas' : 'Establecimientos' }}</span>
+          <strong>{{ auth.getCurrentUser()?.role === 'superusuario' ? companies.length : auth.getCurrentUser()?.role === 'administrador' ? companies.length : establishments.length }}</strong>
         </article>
         <article class="metric">
-          <span>{{ auth.getCurrentUser()?.role === 'superusuario' ? 'Usuarios administradores' : 'Ingresos del mes' }}</span>
-          <strong class="income">{{ auth.getCurrentUser()?.role === 'superusuario' ? adminCompaniesCount : currency(summary.income) }}</strong>
+          <span>{{ auth.getCurrentUser()?.role === 'superusuario' ? 'Usuarios administradores' : auth.getCurrentUser()?.role === 'administrador' ? 'Empresa activa' : 'Ingresos del mes' }}</span>
+          <strong class="income">{{ auth.getCurrentUser()?.role === 'superusuario' ? adminCompaniesCount : auth.getCurrentUser()?.role === 'administrador' ? (activeCompanyName || 'Pendiente') : currency(summary.income) }}</strong>
         </article>
         <article class="metric">
-          <span>{{ auth.getCurrentUser()?.role === 'superusuario' ? 'Seguimiento activo' : 'Gastos del mes' }}</span>
-          <strong class="expense">{{ auth.getCurrentUser()?.role === 'superusuario' ? 'Manual' : currency(summary.expense) }}</strong>
+          <span>{{ auth.getCurrentUser()?.role === 'superusuario' ? 'Seguimiento activo' : auth.getCurrentUser()?.role === 'administrador' ? 'Ingresos del mes' : 'Gastos del mes' }}</span>
+          <strong class="expense">{{ auth.getCurrentUser()?.role === 'superusuario' ? 'Manual' : auth.getCurrentUser()?.role === 'administrador' ? currency(summary.income) : currency(summary.expense) }}</strong>
         </article>
         <article class="metric">
-          <span>{{ auth.getCurrentUser()?.role === 'superusuario' ? 'Politica' : 'Balance' }}</span>
+          <span>{{ auth.getCurrentUser()?.role === 'superusuario' ? 'Politica' : auth.getCurrentUser()?.role === 'administrador' ? 'Balance' : 'Balance' }}</span>
           <strong [class.income]="auth.getCurrentUser()?.role === 'superusuario' || summary.balance >= 0" [class.expense]="auth.getCurrentUser()?.role !== 'superusuario' && summary.balance < 0">
             {{ auth.getCurrentUser()?.role === 'superusuario' ? 'Entrar por empresa' : currency(summary.balance) }}
           </strong>
@@ -86,42 +86,61 @@ import { SummaryService } from '../services/summary.service';
         </div>
       </section>
 
-      <section *ngIf="showEstablishmentForm" class="panel form-panel">
+      <section *ngIf="auth.getCurrentUser()?.role === 'administrador'" class="panel super-panel">
         <div class="panel-head">
-          <h2>Nuevo establecimiento</h2>
-          <p class="muted">Portado del flujo principal del Figma a una estructura Angular real.</p>
+          <h2>Mis empresas asignadas</h2>
+          <p class="muted">Selecciona una empresa para trabajar su operacion. La informacion siempre se muestra por empresa activa, no consolidada.</p>
         </div>
 
-        <div class="form-grid">
-          <label>
-            <span>Nombre</span>
-            <input [(ngModel)]="establishmentName" placeholder="Ej. Sucursal Centro">
-          </label>
-          <label *ngIf="auth.getCurrentUser()?.role === 'superusuario'">
-            <span>Empresa</span>
-            <select [(ngModel)]="selectedCompanyId">
-              <option value="">Seleccione una empresa</option>
-              <option *ngFor="let item of companies" [value]="item.id">{{ item.name }}</option>
-            </select>
-          </label>
-          <label class="full">
-            <span>Descripcion</span>
-            <textarea [(ngModel)]="establishmentDescription" rows="3" placeholder="Describe el establecimiento"></textarea>
-          </label>
+        <div *ngIf="companies.length; else noCompanies" class="grid cards company-cards">
+          <article class="card" *ngFor="let item of companies">
+            <div class="card-head">
+              <div>
+                <h3>{{ item.name }}</h3>
+                <p class="muted">{{ item.description || 'Sin descripcion' }}</p>
+              </div>
+              <span class="badge" [class.badge-active]="item.id === activeCompanyId">{{ item.id === activeCompanyId ? 'Activa' : 'Asignada' }}</span>
+            </div>
+
+            <div class="mini-stats">
+              <div>
+                <span>Estado</span>
+                <strong>{{ item.subscriptionStatus || 'Activo' }}</strong>
+              </div>
+              <div>
+                <span>Plan</span>
+                <strong>{{ item.planName || 'Base' }}</strong>
+              </div>
+            </div>
+
+            <div class="card-actions">
+              <button class="btn" type="button" (click)="selectCompany(item.id)">
+                {{ item.id === activeCompanyId ? 'Trabajando aqui' : 'Entrar a esta empresa' }}
+              </button>
+            </div>
+          </article>
         </div>
 
-        <div class="panel-actions">
-          <button class="btn" type="button" (click)="createEstablishment()">Guardar</button>
-        </div>
+        <ng-template #noCompanies>
+          <div class="empty">
+            <h3>Aun no tienes empresas asignadas</h3>
+            <p class="muted">Cuando el superusuario te vincule a una empresa, la veras aqui para entrar por contexto.</p>
+          </div>
+        </ng-template>
       </section>
 
       <section class="panel" *ngIf="auth.getCurrentUser()?.role !== 'superusuario'">
         <div class="panel-head">
-          <h2>Mis establecimientos</h2>
-          <p class="muted">Cada tarjeta concentra ingresos, gastos y acceso rapido al detalle.</p>
+          <h2>{{ auth.getCurrentUser()?.role === 'administrador' ? 'Establecimientos de la empresa activa' : 'Mis establecimientos' }}</h2>
+          <p class="muted">{{ auth.getCurrentUser()?.role === 'administrador' ? 'Solo ves la operacion de la empresa que elegiste arriba.' : 'Cada tarjeta concentra ingresos, gastos y acceso rapido al detalle.' }}</p>
         </div>
 
-        <div *ngIf="establishments.length; else emptyState" class="grid cards">
+        <div *ngIf="needsCompanySelection()" class="empty">
+          <h3>Selecciona una empresa</h3>
+          <p class="muted">Primero elige una empresa asignada para cargar sus establecimientos y movimientos.</p>
+        </div>
+
+        <div *ngIf="!needsCompanySelection() && establishments.length; else emptyState" class="grid cards">
           <article class="card" *ngFor="let item of establishments">
             <div class="card-head">
               <div>
@@ -150,12 +169,45 @@ import { SummaryService } from '../services/summary.service';
         </div>
 
         <ng-template #emptyState>
-          <div class="empty">
+          <div *ngIf="!needsCompanySelection()" class="empty">
             <h3>Aun no hay establecimientos</h3>
             <p class="muted">Crea el primero para empezar a registrar movimientos.</p>
           </div>
         </ng-template>
       </section>
+
+      <app-modal-shell *ngIf="showEstablishmentForm" width="720px" labelledBy="establishment-modal-title" (closed)="closeEstablishmentModal()">
+          <div class="panel-head modal-head">
+            <div>
+              <h2 id="establishment-modal-title">Nuevo establecimiento</h2>
+              <p class="muted">Crea el establecimiento sin perder el contexto del panel principal.</p>
+            </div>
+            <button class="icon-btn" type="button" (click)="closeEstablishmentModal()" aria-label="Cerrar">×</button>
+          </div>
+
+          <div class="form-grid">
+            <label>
+              <span>Nombre</span>
+              <input [(ngModel)]="establishmentName" placeholder="Ej. Sucursal Centro">
+            </label>
+            <label *ngIf="auth.getCurrentUser()?.role === 'superusuario'">
+              <span>Empresa</span>
+              <select [(ngModel)]="selectedCompanyId">
+                <option value="">Seleccione una empresa</option>
+                <option *ngFor="let item of companies" [value]="item.id">{{ item.name }}</option>
+              </select>
+            </label>
+            <label class="full">
+              <span>Descripcion</span>
+              <textarea [(ngModel)]="establishmentDescription" rows="3" placeholder="Describe el establecimiento"></textarea>
+            </label>
+          </div>
+
+          <div class="panel-actions">
+            <button class="btn" type="button" (click)="createEstablishment()">Guardar</button>
+            <button class="btn ghost" type="button" (click)="closeEstablishmentModal()">Cancelar</button>
+          </div>
+      </app-modal-shell>
     </div>
   `,
   styles: [`
@@ -195,13 +247,17 @@ import { SummaryService } from '../services/summary.service';
     .income { color: var(--success); }
     .expense { color: var(--danger); }
     .empty { padding: 20px 0 4px; display: grid; gap: 8px; }
-    @media (max-width: 768px) { .shell { padding: 18px; } .topbar { flex-direction: column; } .form-grid { grid-template-columns: 1fr; } }
+    .modal-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+    .icon-btn { width: 42px; height: 42px; border: 0; border-radius: 999px; background: rgba(15,23,42,.08); color: #24466b; font-size: 24px; cursor: pointer; }
+    @media (max-width: 768px) { .shell { padding: 18px; } .topbar { flex-direction: column; } .form-grid { grid-template-columns: 1fr; } .modal-backdrop { padding: 16px; } }
   `],
 })
 export class DashboardPageComponent implements OnInit {
   establishments: Establishment[] = [];
   companies: Company[] = [];
   adminCompaniesCount = 0;
+  activeCompanyId = '';
+  activeCompanyName = '';
   showEstablishmentForm = false;
   establishmentName = '';
   establishmentDescription = '';
@@ -216,15 +272,27 @@ export class DashboardPageComponent implements OnInit {
   ) {}
 
   async ngOnInit(): Promise<void> {
-    if (this.auth.can('manage-companies')) {
+    const role = this.auth.getCurrentUser()?.role;
+    if (role === 'superusuario' || role === 'administrador') {
       this.companies = await this.storage.getCompanies();
-      this.adminCompaniesCount = this.companies.reduce((total, item) => total + (item.usersCount ?? 0), 0);
+      if (role === 'superusuario') {
+        this.adminCompaniesCount = this.companies.reduce((total, item) => total + (item.usersCount ?? 0), 0);
+      }
+      this.syncActiveCompany();
     }
     await this.refresh();
   }
 
   async refresh(): Promise<void> {
-    if (this.auth.getCurrentUser()?.role === 'superusuario') {
+    const role = this.auth.getCurrentUser()?.role;
+    if (role === 'superusuario') {
+      this.establishments = [];
+      this.summary = { month: new Date().toISOString().slice(0, 7), income: 0, expense: 0, balance: 0 };
+      return;
+    }
+
+    this.syncActiveCompany();
+    if (role === 'administrador' && this.needsCompanySelection()) {
       this.establishments = [];
       this.summary = { month: new Date().toISOString().slice(0, 7), income: 0, expense: 0, balance: 0 };
       return;
@@ -236,8 +304,21 @@ export class DashboardPageComponent implements OnInit {
     this.summary = await this.storage.getSummary(month);
   }
 
-  toggleEstablishmentForm(): void {
-    this.showEstablishmentForm = !this.showEstablishmentForm;
+  openEstablishmentModal(): void {
+    this.showEstablishmentForm = true;
+  }
+
+  closeEstablishmentModal(): void {
+    this.showEstablishmentForm = false;
+    this.establishmentName = '';
+    this.establishmentDescription = '';
+    this.selectedCompanyId = '';
+  }
+
+  async selectCompany(companyId: string): Promise<void> {
+    this.auth.setActiveCompany(companyId);
+    this.syncActiveCompany();
+    await this.refresh();
   }
 
   async createEstablishment(): Promise<void> {
@@ -279,5 +360,15 @@ export class DashboardPageComponent implements OnInit {
   async logout(): Promise<void> {
     this.auth.logout();
     await this.router.navigate(['/login']);
+  }
+
+  needsCompanySelection(): boolean {
+    return this.auth.getCurrentUser()?.role === 'administrador' && !this.activeCompanyId;
+  }
+
+  private syncActiveCompany(): void {
+    const currentUser = this.auth.getCurrentUser();
+    this.activeCompanyId = currentUser?.companyId ?? '';
+    this.activeCompanyName = currentUser?.companyName ?? this.companies.find((item) => item.id === this.activeCompanyId)?.name ?? '';
   }
 }

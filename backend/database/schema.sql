@@ -6,6 +6,7 @@ DROP TABLE IF EXISTS company_access_logs;
 DROP TABLE IF EXISTS company_settings;
 DROP TABLE IF EXISTS company_subscriptions;
 DROP TABLE IF EXISTS plans;
+DROP TABLE IF EXISTS company_admin_users;
 DROP TABLE IF EXISTS companies;
 DROP TABLE IF EXISTS user_establishments;
 DROP TABLE IF EXISTS expense_templates;
@@ -56,6 +57,20 @@ CREATE TABLE users (
         ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE company_admin_users (
+    user_id INT UNSIGNED NOT NULL,
+    company_id INT UNSIGNED NOT NULL,
+    PRIMARY KEY (user_id, company_id),
+    CONSTRAINT fk_company_admin_users_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_company_admin_users_company
+        FOREIGN KEY (company_id) REFERENCES companies(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE establishments (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     company_id INT UNSIGNED NOT NULL,
@@ -86,11 +101,25 @@ CREATE TABLE user_establishments (
 
 CREATE TABLE categories (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    company_id INT UNSIGNED NOT NULL,
+    establishment_id INT UNSIGNED NULL,
     name VARCHAR(80) NOT NULL,
-    type ENUM('income', 'expense') NOT NULL,
+    type ENUM('income', 'expense', 'movement') NOT NULL,
+    scope ENUM('EMPRESA', 'ESTABLECIMIENTO') NOT NULL DEFAULT 'ESTABLECIMIENTO',
     color VARCHAR(20) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id)
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_categories_company_scope (company_id, scope, type, name),
+    KEY idx_categories_establishment_scope (establishment_id, scope, type, name),
+    CONSTRAINT fk_categories_company
+        FOREIGN KEY (company_id) REFERENCES companies(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_categories_establishment
+        FOREIGN KEY (establishment_id) REFERENCES establishments(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE expense_templates (
@@ -116,14 +145,19 @@ CREATE TABLE transactions (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     company_id INT UNSIGNED NOT NULL,
     establishment_id INT UNSIGNED NOT NULL,
-    type ENUM('income', 'expense') NOT NULL DEFAULT 'expense',
+    category_id INT UNSIGNED NULL,
+    related_establishment_id INT UNSIGNED NULL,
+    movement_group_id VARCHAR(64) NULL,
+    type ENUM('income', 'expense', 'SALIDA_POR_MOVIMIENTO', 'INGRESO_POR_MOVIMIENTO') NOT NULL DEFAULT 'expense',
     category VARCHAR(100) NOT NULL,
     description TEXT NULL,
     amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
     transaction_date DATE NOT NULL,
     from_template TINYINT(1) NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
+    KEY idx_transactions_movement_group (movement_group_id),
     CONSTRAINT fk_transactions_company
         FOREIGN KEY (company_id) REFERENCES companies(id)
         ON DELETE CASCADE
@@ -131,6 +165,14 @@ CREATE TABLE transactions (
     CONSTRAINT fk_transactions_establishment
         FOREIGN KEY (establishment_id) REFERENCES establishments(id)
         ON DELETE CASCADE
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_transactions_category
+        FOREIGN KEY (category_id) REFERENCES categories(id)
+        ON DELETE SET NULL
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_transactions_related_establishment
+        FOREIGN KEY (related_establishment_id) REFERENCES establishments(id)
+        ON DELETE SET NULL
         ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -223,4 +265,4 @@ INSERT INTO plans (code, name, description, monthly_price, establishments_limit,
 ('growth', 'Plan Growth', 'Escala operaciones con mas usuarios y establecimientos.', 79.00, 10, 50, 0, 1);
 
 INSERT INTO users (company_id, full_name, email, password_hash, role) VALUES
-(NULL, 'Junior Dominguez', 'juniorjm@gmail.com', '$2y$10$1.xGr53flOgTrb3DuoGFfOmgUg2ujvH.Qd.vrs17e90Twu09LTXRK', 'superusuario');
+(NULL, 'Sistema Expense Tracker', 'sp-et@sofdla.net', '$2y$10$MHicxJMRFBstpVNtDh53M.5BY.1YzNRopDUxvwXI0IL.dZJ7jEaMu', 'superusuario');

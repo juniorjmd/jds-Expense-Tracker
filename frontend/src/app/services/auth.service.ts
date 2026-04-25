@@ -39,6 +39,20 @@ export class AuthService {
     localStorage.removeItem(CURRENT_USER_KEY);
   }
 
+  setActiveCompany(companyId: string): void {
+    const current = this.getCurrentUser();
+    if (!current) {
+      return;
+    }
+
+    const company = current.administeredCompanies?.find((item) => item.id === companyId);
+    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify({
+      ...current,
+      companyId,
+      companyName: company?.name ?? current.companyName ?? null,
+    }));
+  }
+
   getUsers(): Promise<User[]> {
     return this.api.get<User[]>('/users');
   }
@@ -66,6 +80,16 @@ export class AuthService {
       localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
     }
 
+    return user;
+  }
+
+  async changeCurrentPassword(payload: {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+  }): Promise<User> {
+    const user = await this.api.post<User>('/users/change-password', payload);
+    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
     return user;
   }
 

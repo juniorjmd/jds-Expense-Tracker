@@ -50,5 +50,6 @@ La intencion del producto no es quedarse como una app cerrada de un solo negocio
 
 La parte tecnica detallada vive dentro de cada desarrollo:
 
+- [DEPLOY_FTP.md](c:\desarrollo\back\php\proyecto-jds-Expense-Tracker\DEPLOY_FTP.md)
 - [backend/README.md](c:\desarrollo\back\php\proyecto-jds-Expense-Tracker\backend\README.md)
 - [frontend/README.md](c:\desarrollo\back\php\proyecto-jds-Expense-Tracker\frontend\README.md)

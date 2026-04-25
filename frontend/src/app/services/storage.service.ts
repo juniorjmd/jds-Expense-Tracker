@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Company, CompanyOverview, Establishment, ExpenseTemplate, MonthlySummary, Transaction } from '../models';
+import { Category, CategoryScope, Company, CompanyOverview, Establishment, ExpenseTemplate, MonthlySummary, Transaction, TransactionType } from '../models';
 import { ApiService } from './api.service';
 
 @Injectable({ providedIn: 'root' })
@@ -17,9 +17,10 @@ export class StorageService {
   saveCompany(payload: {
     name: string;
     description?: string;
-    adminName: string;
-    adminEmail: string;
-    adminPassword: string;
+    existingAdminUserId?: string;
+    adminName?: string;
+    adminEmail?: string;
+    adminPassword?: string;
   }): Promise<{ company: Company }> {
     return this.api.post<{ company: Company }>('/companies', payload);
   }
@@ -40,19 +41,125 @@ export class StorageService {
     return this.api.get<Transaction[]>(`/establishments/${establishmentId}/transactions`);
   }
 
-  saveTransaction(payload: Omit<Transaction, 'id'>): Promise<Transaction> {
+  saveTransaction(payload: {
+    establishmentId: string;
+    type: Extract<TransactionType, 'income' | 'expense'>;
+    amount: number;
+    category: string;
+    description: string;
+    date: string;
+    fromTemplate?: boolean;
+    categoryId?: string | null;
+    categoryScope?: CategoryScope;
+  }): Promise<Transaction> {
     return this.api.post<Transaction>(`/establishments/${payload.establishmentId}/transactions`, {
       type: payload.type,
       amount: payload.amount,
+      category_id: payload.categoryId || undefined,
       category: payload.category,
+      category_scope: payload.categoryScope || 'ESTABLECIMIENTO',
       description: payload.description,
       transaction_date: payload.date.slice(0, 10),
       from_template: payload.fromTemplate ?? false,
     });
   }
 
+  updateTransaction(id: string, payload: {
+    establishmentId: string;
+    type: Extract<TransactionType, 'income' | 'expense'>;
+    amount: number;
+    category: string;
+    description: string;
+    date: string;
+    categoryId?: string | null;
+    categoryScope?: CategoryScope;
+  }): Promise<Transaction> {
+    return this.api.put<Transaction>(`/transactions/${id}`, {
+      establishmentId: payload.establishmentId,
+      type: payload.type,
+      amount: payload.amount,
+      category_id: payload.categoryId || undefined,
+      category: payload.category,
+      category_scope: payload.categoryScope || 'ESTABLECIMIENTO',
+      description: payload.description,
+      transaction_date: payload.date.slice(0, 10),
+    });
+  }
+
+  saveMovement(payload: {
+    sourceEstablishmentId: string;
+    destinationEstablishmentId: string;
+    amount: number;
+    category: string;
+    description: string;
+    date: string;
+    categoryId?: string | null;
+    categoryScope?: CategoryScope;
+  }): Promise<{ movementGroupId: string; source: Transaction; destination: Transaction; transactions: Transaction[] }> {
+    return this.api.post<{ movementGroupId: string; source: Transaction; destination: Transaction; transactions: Transaction[] }>(
+      `/establishments/${payload.sourceEstablishmentId}/movements`,
+      {
+        destinationEstablishmentId: payload.destinationEstablishmentId,
+        amount: payload.amount,
+        category_id: payload.categoryId || undefined,
+        category: payload.category,
+        category_scope: payload.categoryScope || 'EMPRESA',
+        description: payload.description,
+        transaction_date: payload.date.slice(0, 10),
+      }
+    );
+  }
+
+  updateMovement(movementGroupId: string, payload: {
+    sourceEstablishmentId: string;
+    destinationEstablishmentId: string;
+    amount: number;
+    category: string;
+    description: string;
+    date: string;
+    categoryId?: string | null;
+    categoryScope?: CategoryScope;
+  }): Promise<{ movementGroupId: string; source: Transaction; destination: Transaction; transactions: Transaction[] }> {
+    return this.api.put<{ movementGroupId: string; source: Transaction; destination: Transaction; transactions: Transaction[] }>(
+      `/transactions/movements/${movementGroupId}`,
+      {
+        sourceEstablishmentId: payload.sourceEstablishmentId,
+        destinationEstablishmentId: payload.destinationEstablishmentId,
+        amount: payload.amount,
+        category_id: payload.categoryId || undefined,
+        category: payload.category,
+        category_scope: payload.categoryScope || 'EMPRESA',
+        description: payload.description,
+        transaction_date: payload.date.slice(0, 10),
+      }
+    );
+  }
+
   async deleteTransaction(id: string): Promise<void> {
     await this.api.delete<{ deleted: boolean }>(`/transactions/${id}`);
+  }
+
+  getCategories(type?: 'income' | 'expense' | 'movement', establishmentId?: string): Promise<Category[]> {
+    const params = new URLSearchParams();
+    if (type) {
+      params.set('type', type);
+    }
+    if (establishmentId) {
+      params.set('establishmentId', establishmentId);
+    }
+
+    const query = params.toString();
+    return this.api.get<Category[]>(`/categories${query ? `?${query}` : ''}`);
+  }
+
+  saveCategory(payload: {
+    name: string;
+    type: 'income' | 'expense' | 'movement';
+    scope: CategoryScope;
+    establishmentId?: string;
+    color?: string;
+  }): Promise<Category> {
+    return this.api.post<Category>('/categories', payload);
   }
 
   getExpenseTemplatesByEstablishment(establishmentId: string): Promise<ExpenseTemplate[]> {

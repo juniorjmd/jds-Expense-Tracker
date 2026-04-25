@@ -16,16 +16,43 @@ final class CompanyRepository extends BaseRepository
                     p.name AS plan_name,
                     cfg.currency_code,
                     cfg.timezone,
-                    COUNT(DISTINCT e.id) AS establishments_count,
-                    COUNT(DISTINCT u.id) AS users_count
+                    (SELECT COUNT(*) FROM establishments e WHERE e.company_id = c.id) AS establishments_count,
+                    (SELECT COUNT(DISTINCT u.id)
+                     FROM users u
+                     LEFT JOIN company_admin_users cau ON cau.user_id = u.id
+                     WHERE u.role <> "superusuario"
+                       AND (u.company_id = c.id OR cau.company_id = c.id)) AS users_count
              FROM companies c
              LEFT JOIN company_subscriptions cs ON cs.company_id = c.id
              LEFT JOIN plans p ON p.id = cs.plan_id
              LEFT JOIN company_settings cfg ON cfg.company_id = c.id
-             LEFT JOIN establishments e ON e.company_id = c.id
-             LEFT JOIN users u ON u.company_id = c.id AND u.role <> "superusuario"
-             GROUP BY c.id, c.name, c.description, c.created_at, cs.status, p.code, p.name, cfg.currency_code, cfg.timezone
              ORDER BY c.created_at DESC, c.id DESC'
+        );
+    }
+
+    public function assignedToAdmin(int $userId): array
+    {
+        return $this->fetchAll(
+            'SELECT c.id, c.name, c.description, c.created_at,
+                    cs.status AS subscription_status,
+                    p.code AS plan_code,
+                    p.name AS plan_name,
+                    cfg.currency_code,
+                    cfg.timezone,
+                    (SELECT COUNT(*) FROM establishments e WHERE e.company_id = c.id) AS establishments_count,
+                    (SELECT COUNT(DISTINCT u.id)
+                     FROM users u
+                     LEFT JOIN company_admin_users cau2 ON cau2.user_id = u.id
+                     WHERE u.role <> "superusuario"
+                       AND (u.company_id = c.id OR cau2.company_id = c.id)) AS users_count
+             FROM companies c
+             INNER JOIN company_admin_users cau ON cau.company_id = c.id
+             LEFT JOIN company_subscriptions cs ON cs.company_id = c.id
+             LEFT JOIN plans p ON p.id = cs.plan_id
+             LEFT JOIN company_settings cfg ON cfg.company_id = c.id
+             WHERE cau.user_id = :user_id
+             ORDER BY c.created_at DESC, c.id DESC',
+            [':user_id' => $userId]
         );
     }
 
@@ -48,14 +75,16 @@ final class CompanyRepository extends BaseRepository
                     cfg.timezone,
                     cfg.date_format,
                     cfg.branding_name,
-                    COUNT(DISTINCT e.id) AS establishments_count,
-                    COUNT(DISTINCT u.id) AS users_count
+                    (SELECT COUNT(*) FROM establishments e WHERE e.company_id = c.id) AS establishments_count,
+                    (SELECT COUNT(DISTINCT u.id)
+                     FROM users u
+                     LEFT JOIN company_admin_users cau ON cau.user_id = u.id
+                     WHERE u.role <> "superusuario"
+                       AND (u.company_id = c.id OR cau.company_id = c.id)) AS users_count
              FROM companies c
              LEFT JOIN company_subscriptions cs ON cs.company_id = c.id
              LEFT JOIN plans p ON p.id = cs.plan_id
              LEFT JOIN company_settings cfg ON cfg.company_id = c.id
-             LEFT JOIN establishments e ON e.company_id = c.id
-             LEFT JOIN users u ON u.company_id = c.id AND u.role <> "superusuario"
              WHERE c.id = :id
              GROUP BY c.id, c.name, c.description, c.created_at, cs.status, p.code, p.name, cfg.currency_code, cfg.timezone, cfg.date_format, cfg.branding_name',
             [':id' => $id]
@@ -73,5 +102,27 @@ final class CompanyRepository extends BaseRepository
         );
 
         return $this->find((int) $this->db->lastInsertId()) ?? [];
+    }
+
+    public function assignAdmin(int $companyId, int $userId): void
+    {
+        $this->execute(
+            'INSERT INTO company_admin_users (user_id, company_id) VALUES (:user_id, :company_id)',
+            [
+                ':user_id' => $userId,
+                ':company_id' => $companyId,
+            ]
+        );
+    }
+
+    public function isAdminAssigned(int $companyId, int $userId): bool
+    {
+        return $this->fetchOne(
+            'SELECT user_id FROM company_admin_users WHERE company_id = :company_id AND user_id = :user_id',
+            [
+                ':company_id' => $companyId,
+                ':user_id' => $userId,
+            ]
+        ) !== null;
     }
 }

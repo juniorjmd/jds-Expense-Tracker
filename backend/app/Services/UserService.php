@@ -27,6 +27,11 @@ final class UserService
         $normalized = $this->normalizePayload($actor, $payload);
         $created = $this->repository->create($normalized);
 
+        if (!$this->sendWelcomePasswordEmail($created, (string) ($normalized['plain_password'] ?? ''))) {
+            $this->repository->delete((int) ($created['id'] ?? 0));
+            throw new InvalidArgumentException('No fue posible enviar la contrasena inicial al correo del usuario.');
+        }
+
         $this->activityLogs->log(
             $actor,
             'user',
@@ -108,6 +113,63 @@ final class UserService
         return $this->repository->delete($id);
     }
 
+    public function changePassword(array $actor, array $payload): array
+    {
+        $currentPassword = (string) ($payload['currentPassword'] ?? '');
+        $newPassword = (string) ($payload['newPassword'] ?? '');
+        $confirmPassword = (string) ($payload['confirmPassword'] ?? '');
+
+        if ($currentPassword === '' || $newPassword === '' || $confirmPassword === '') {
+            throw new InvalidArgumentException('Debes completar la contrasena actual, la nueva y su confirmacion.');
+        }
+
+        if ($newPassword !== $confirmPassword) {
+            throw new InvalidArgumentException('La nueva contrasena y la confirmacion no coinciden.');
+        }
+
+        if (strlen($newPassword) < 8) {
+            throw new InvalidArgumentException('La nueva contrasena debe tener al menos 8 caracteres.');
+        }
+
+        if ($currentPassword === $newPassword) {
+            throw new InvalidArgumentException('La nueva contrasena debe ser diferente a la actual.');
+        }
+
+        $existing = $this->repository->findWithPasswordHash((int) ($actor['id'] ?? 0));
+        if ($existing === null) {
+            throw new InvalidArgumentException('El usuario autenticado no existe.');
+        }
+
+        if (!password_verify($currentPassword, (string) ($existing['password_hash'] ?? ''))) {
+            throw new InvalidArgumentException('La contrasena actual no es correcta.');
+        }
+
+        $updated = $this->repository->update((int) $existing['id'], [
+            'company_id' => $existing['company_id'] ?? null,
+            'full_name' => (string) ($existing['full_name'] ?? ''),
+            'email' => (string) ($existing['email'] ?? ''),
+            'role' => (string) ($existing['role'] ?? 'visualizador'),
+            'password_hash' => password_hash($newPassword, PASSWORD_BCRYPT),
+            'assigned_establishments' => [],
+        ]);
+
+        $this->activityLogs->log(
+            $actor,
+            'user',
+            (string) $updated['id'],
+            'user_password_changed',
+            (int) ($updated['company_id'] ?? 0),
+            null,
+            'El usuario actualizo su contrasena desde el portal.',
+            [
+                'email' => (string) ($updated['email'] ?? ''),
+                'role' => (string) ($updated['role'] ?? ''),
+            ]
+        );
+
+        return $this->authService->mapUser($updated);
+    }
+
     private function normalizePayload(array $actor, array $payload, ?int $id = null): array
     {
         $this->assertCanManageUsers($actor);
@@ -137,8 +199,8 @@ final class UserService
             throw new InvalidArgumentException('El email ya esta registrado.');
         }
 
-        if ($id === null && $password === '') {
-            throw new InvalidArgumentException('La contrasena es obligatoria.');
+        if ($id === null) {
+            $password = $password !== '' ? $password : $this->generatePassword();
         }
 
         foreach ($assigned as $establishmentId) {
@@ -154,10 +216,53 @@ final class UserService
             'email' => $email,
             'role' => $role,
             'password_hash' => $password !== '' ? password_hash($password, PASSWORD_BCRYPT) : null,
+            'plain_password' => $id === null ? $password : null,
             'assigned_establishments' => $role === 'administrador'
                 ? []
                 : array_values(array_filter(array_map('intval', $assigned), static fn (int $value): bool => $value > 0)),
         ];
+    }
+
+    private function generatePassword(int $length = 14): string
+    {
+        $characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        $maxIndex = strlen($characters) - 1;
+        $password = '';
+
+        for ($index = 0; $index < $length; $index++) {
+            $password .= $characters[random_int(0, $maxIndex)];
+        }
+
+        return $password;
+    }
+
+    private function sendWelcomePasswordEmail(array $user, string $plainPassword): bool
+    {
+        $to = trim((string) ($user['email'] ?? ''));
+        if ($to === '' || $plainPassword === '') {
+            return false;
+        }
+
+        $frontUrl = rtrim((string) ($_ENV['APP_FRONTEND_URL'] ?? ''), '/');
+        $loginUrl = $frontUrl !== '' ? $frontUrl . '/login' : '/login';
+        $name = (string) ($user['full_name'] ?? '');
+        $subject = 'Bienvenido a Expense Tracker';
+        $message = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Acceso inicial</title></head><body>'
+            . '<p>Hola ' . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . ',</p>'
+            . '<p>Tu usuario fue creado correctamente en Expense Tracker.</p>'
+            . '<p><strong>Email:</strong> ' . htmlspecialchars($to, ENT_QUOTES, 'UTF-8') . '</p>'
+            . '<p><strong>Contrasena temporal:</strong> ' . htmlspecialchars($plainPassword, ENT_QUOTES, 'UTF-8') . '</p>'
+            . '<p>Usa esta contrasena para tu primer ingreso y cambiala despues de entrar.</p>'
+            . '<p><a href="' . htmlspecialchars($loginUrl, ENT_QUOTES, 'UTF-8') . '">Ir al inicio de sesion</a></p>'
+            . '</body></html>';
+
+        $mailFrom = (string) ($_ENV['MAIL_FROM'] ?? 'no-reply@sofdla.net');
+        $headers = "From: " . strip_tags($mailFrom) . "\r\n";
+        $headers .= "Reply-To: " . strip_tags($mailFrom) . "\r\n";
+        $headers .= "MIME-Version: 1.0\r\n";
+        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+
+        return mail($to, $subject, $message, $headers);
     }
 
     private function assertCanManageUsers(array $actor): void

@@ -24,8 +24,16 @@ final class UserRepository extends BaseRepository
 
         $params = [];
         if (($actor['role'] ?? '') !== 'superusuario') {
-            $sql .= ' WHERE u.company_id = :company_id AND u.role <> "superusuario"';
-            $params[':company_id'] = (int) ($actor['company_id'] ?? 0);
+            $sql .= ' WHERE u.role <> "superusuario"
+                      AND (
+                        u.company_id = :company_id_user
+                        OR EXISTS (
+                            SELECT 1 FROM company_admin_users cau
+                            WHERE cau.user_id = u.id AND cau.company_id = :company_id_admin
+                        )
+                      )';
+            $params[':company_id_user'] = (int) ($actor['company_id'] ?? 0);
+            $params[':company_id_admin'] = (int) ($actor['company_id'] ?? 0);
         }
 
         $sql .= ' GROUP BY u.id, u.company_id, c.name, u.full_name, u.email, u.role, u.created_at
@@ -49,10 +57,20 @@ final class UserRepository extends BaseRepository
              FROM users u
              LEFT JOIN companies c ON c.id = u.company_id
              LEFT JOIN user_establishments ue ON ue.user_id = u.id
-             WHERE u.company_id = :company_id AND u.role <> "superusuario"
+             WHERE u.role <> "superusuario"
+               AND (
+                    u.company_id = :company_id_user
+                    OR EXISTS (
+                        SELECT 1 FROM company_admin_users cau
+                        WHERE cau.user_id = u.id AND cau.company_id = :company_id_admin
+                    )
+               )
              GROUP BY u.id, u.company_id, c.name, u.full_name, u.email, u.role, u.created_at
              ORDER BY u.created_at DESC, u.id DESC',
-            [':company_id' => $companyId]
+            [
+                ':company_id_user' => $companyId,
+                ':company_id_admin' => $companyId,
+            ]
         );
     }
 
@@ -96,6 +114,17 @@ final class UserRepository extends BaseRepository
              WHERE u.email = :email
              GROUP BY u.id, u.company_id, c.name, u.full_name, u.email, u.password_hash, u.role, u.created_at',
             [':email' => $email]
+        );
+    }
+
+    public function findWithPasswordHash(int $id): ?array
+    {
+        return $this->fetchOne(
+            'SELECT id, company_id, full_name, email, password_hash, role, created_at
+             FROM users
+             WHERE id = :id
+             LIMIT 1',
+            [':id' => $id]
         );
     }
 
@@ -171,10 +200,15 @@ final class UserRepository extends BaseRepository
 
     public function countAdminsByCompany(int $companyId, ?int $excludeId = null): int
     {
-        $sql = 'SELECT COUNT(*) AS total
-                FROM users
-                WHERE company_id = :company_id AND role = "administrador"';
-        $params = [':company_id' => $companyId];
+        $sql = 'SELECT COUNT(DISTINCT u.id) AS total
+                FROM users u
+                LEFT JOIN company_admin_users cau ON cau.user_id = u.id
+                WHERE role = "administrador"
+                  AND (u.company_id = :company_id_user OR cau.company_id = :company_id_admin)';
+        $params = [
+            ':company_id_user' => $companyId,
+            ':company_id_admin' => $companyId,
+        ];
 
         if ($excludeId !== null) {
             $sql .= ' AND id <> :exclude_id';
@@ -184,6 +218,17 @@ final class UserRepository extends BaseRepository
         $row = $this->fetchOne($sql, $params);
 
         return (int) ($row['total'] ?? 0);
+    }
+
+    public function setPrimaryCompany(int $userId, int $companyId): void
+    {
+        $this->execute(
+            'UPDATE users SET company_id = :company_id WHERE id = :id AND (company_id IS NULL OR company_id = 0)',
+            [
+                ':company_id' => $companyId,
+                ':id' => $userId,
+            ]
+        );
     }
 
     private function syncAssignments(int $userId, array $establishmentIds): void

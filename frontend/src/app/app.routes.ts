@@ -4,6 +4,7 @@ import { DashboardPageComponent } from './pages/dashboard-page.component';
 import { CompaniesPageComponent } from './pages/companies-page.component';
 import { CompanyDetailPageComponent } from './pages/company-detail-page.component';
 import { LoginPageComponent } from './pages/login-page.component';
+import { SuperuserPasswordPageComponent } from './pages/superuser-password-page.component';
 import { SummaryPageComponent } from './pages/summary-page.component';
 import { UsersPageComponent } from './pages/users-page.component';
 import { EstablishmentDetailPageComponent } from './pages/establishment-detail-page.component';
@@ -42,6 +43,11 @@ export const routes: Routes = [
   {
     path: 'usuarios',
     component: UsersPageComponent,
+    canActivate: [authGuard],
+  },
+  {
+    path: 'superusuario/clave',
+    component: SuperuserPasswordPageComponent,
     canActivate: [authGuard],
   },
   {

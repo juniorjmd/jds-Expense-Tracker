@@ -17,8 +17,8 @@ final class EstablishmentRepository extends BaseRepository
                 e.description,
                 e.created_at,
                 COUNT(t.id) AS transaction_count,
-                COALESCE(SUM(CASE WHEN t.type = "income" THEN t.amount ELSE 0 END), 0) AS income,
-                COALESCE(SUM(CASE WHEN t.type = "expense" THEN t.amount ELSE 0 END), 0) AS expense
+                COALESCE(SUM(CASE WHEN t.type IN ("income", "INGRESO_POR_MOVIMIENTO") THEN t.amount ELSE 0 END), 0) AS income,
+                COALESCE(SUM(CASE WHEN t.type IN ("expense", "SALIDA_POR_MOVIMIENTO") THEN t.amount ELSE 0 END), 0) AS expense
              FROM establishments e
              INNER JOIN companies c ON c.id = e.company_id
              LEFT JOIN transactions t
@@ -47,8 +47,8 @@ final class EstablishmentRepository extends BaseRepository
                 e.description,
                 e.created_at,
                 COUNT(t.id) AS transaction_count,
-                COALESCE(SUM(CASE WHEN t.type = "income" THEN t.amount ELSE 0 END), 0) AS income,
-                COALESCE(SUM(CASE WHEN t.type = "expense" THEN t.amount ELSE 0 END), 0) AS expense
+                COALESCE(SUM(CASE WHEN t.type IN ("income", "INGRESO_POR_MOVIMIENTO") THEN t.amount ELSE 0 END), 0) AS income,
+                COALESCE(SUM(CASE WHEN t.type IN ("expense", "SALIDA_POR_MOVIMIENTO") THEN t.amount ELSE 0 END), 0) AS expense
              FROM establishments e
              INNER JOIN companies c ON c.id = e.company_id
              LEFT JOIN transactions t

@@ -44,6 +44,15 @@ final class UserController
         }
     }
 
+    public function changePassword(Request $request): void
+    {
+        try {
+            Response::ok($this->service->changePassword($this->currentUser->require($request), $request->body()));
+        } catch (InvalidArgumentException $exception) {
+            Response::fail('VALIDATION_ERROR', $exception->getMessage(), 422);
+        }
+    }
+
     public function destroy(Request $request): void
     {
         try {

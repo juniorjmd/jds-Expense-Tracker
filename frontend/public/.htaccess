@@ -1,9 +1,9 @@
 Options -Indexes
 RewriteEngine On
-RewriteBase /expense-tracker/
+RewriteBase /
 
 RewriteRule ^index\.html$ - [L]
 
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule . /expense-tracker/index.html [L]
+RewriteRule . /index.html [L]

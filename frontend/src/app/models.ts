@@ -72,16 +72,37 @@ export interface Establishment {
   balance?: number;
 }
 
+export type TransactionType = 'income' | 'expense' | 'SALIDA_POR_MOVIMIENTO' | 'INGRESO_POR_MOVIMIENTO';
+
+export type CategoryScope = 'EMPRESA' | 'ESTABLECIMIENTO';
+
+export interface Category {
+  id: string;
+  companyId: string;
+  establishmentId?: string | null;
+  name: string;
+  type: 'income' | 'expense' | 'movement';
+  scope: CategoryScope;
+  color?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface Transaction {
   id: string;
   companyId?: string;
   establishmentId: string;
-  type: 'income' | 'expense';
+  categoryId?: string | null;
+  relatedEstablishmentId?: string | null;
+  movementGroupId?: string;
+  type: TransactionType;
   amount: number;
   category: string;
   description: string;
   date: string;
   fromTemplate?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ExpenseTemplate {
@@ -100,6 +121,7 @@ export interface User {
   id: string;
   companyId?: string | null;
   companyName?: string | null;
+  administeredCompanies?: Array<Pick<Company, 'id' | 'name' | 'description' | 'planName' | 'subscriptionStatus'>>;
   name: string;
   email: string;
   password?: string;

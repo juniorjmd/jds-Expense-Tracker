@@ -3,11 +3,12 @@ import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
+import { ModalShellComponent } from '../modalsComponent/modal-shell.component';
 
 @Component({
   selector: 'app-login-page',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ModalShellComponent],
   template: `
     <div class="login-shell">
       <button
@@ -44,26 +45,22 @@ import { AuthService } from '../services/auth.service';
         <button class="btn" type="button" (click)="submit()">Entrar</button>
       </section>
 
-      <div *ngIf="showHelp" class="help-overlay" (click)="closeHelp()">
-        <section
+      <app-modal-shell *ngIf="showHelp" width="460px" labelledBy="login-help-title" (closed)="closeHelp()">
+        <div
           id="login-help-dialog"
           class="help-dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Informacion sobre la aplicacion"
-          (click)="$event.stopPropagation()"
         >
           <button class="help-close" type="button" (click)="closeHelp()" aria-label="Cerrar ayuda">×</button>
           <div class="help-copy">
-            <strong>Sobre la aplicacion</strong>
+            <strong id="login-help-title">Sobre la aplicacion</strong>
             <p>Plataforma para administrar empresas, establecimientos y movimientos financieros en un entorno multiempresa.</p>
           </div>
           <div class="help-copy">
             <strong>Funciones principales</strong>
             <p>Incluye seguimiento operativo, control de accesos y paneles para el manejo diario de la operacion.</p>
           </div>
-        </section>
-      </div>
+        </div>
+      </app-modal-shell>
     </div>
   `,
   styles: [`
@@ -86,8 +83,7 @@ import { AuthService } from '../services/auth.service';
     input:focus { outline: 2px solid rgba(106,166,217,.22); border-color: #6aa6d9; }
     .btn { margin-top: 10px; border: 0; border-radius: 999px; padding: 15px 20px; background: linear-gradient(135deg, #0f172a, #2f6ea5); color: #fff; cursor: pointer; font-weight: 700; box-shadow: 0 18px 40px rgba(15, 23, 42, .24); }
     .error { color: var(--danger); font-weight: 600; }
-    .help-overlay { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(15, 23, 42, .32); backdrop-filter: blur(8px); z-index: 3; }
-    .help-dialog { width: min(460px, 100%); position: relative; display:grid; gap:14px; padding:28px 24px 24px; border-radius:28px; background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(241,245,249,.94)); border:1px solid rgba(71,85,105,.12); box-shadow: 0 28px 70px rgba(15, 23, 42, .22); }
+    .help-dialog { position: relative; display:grid; gap:14px; }
     .help-close { position: absolute; top: 14px; right: 14px; width: 38px; height: 38px; border: 0; border-radius: 999px; background: rgba(15,23,42,.08); color: #24466b; font-size: 22px; cursor: pointer; }
     .help-copy { display:grid; gap:6px; color:#51627e; }
     .help-copy strong { color:#0f172a; }

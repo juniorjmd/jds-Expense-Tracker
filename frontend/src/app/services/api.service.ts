@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 
 interface ApiErrorPayload {
@@ -11,6 +11,17 @@ interface ApiResponse<T> {
   ok: boolean;
   data: T;
   error: ApiErrorPayload | null;
+}
+
+export class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string,
+    public readonly status: number,
+    public readonly details?: unknown
+  ) {
+    super(message);
+  }
 }
 
 declare global {
@@ -50,8 +61,15 @@ export class ApiService {
     }
 
     try {
-      const user = JSON.parse(raw) as { id?: string };
-      return user.id ? new HttpHeaders({ 'X-User-Id': user.id }) : new HttpHeaders();
+      const user = JSON.parse(raw) as { id?: string; companyId?: string | null };
+      let headers = new HttpHeaders();
+      if (user.id) {
+        headers = headers.set('X-User-Id', user.id);
+      }
+      if (user.companyId) {
+        headers = headers.set('X-Company-Id', user.companyId);
+      }
+      return headers;
     } catch {
       return new HttpHeaders();
     }
@@ -71,11 +89,34 @@ export class ApiService {
   }
 
   private async unwrap<T>(promise: Promise<ApiResponse<T>>): Promise<T> {
-    const response = await promise;
-    if (!response.ok) {
-      throw new Error(response.error?.message || 'La solicitud al backend fallo.');
-    }
+    try {
+      const response = await promise;
+      if (!response.ok) {
+        throw new ApiRequestError(
+          response.error?.message || 'La solicitud al backend fallo.',
+          response.error?.code || 'API_ERROR',
+          400,
+          response.error
+        );
+      }
 
-    return response.data;
+      return response.data;
+    } catch (error) {
+      if (error instanceof ApiRequestError) {
+        throw error;
+      }
+
+      if (error instanceof HttpErrorResponse) {
+        const payload = error.error as ApiResponse<T> | null;
+        throw new ApiRequestError(
+          payload?.error?.message || error.message || 'La solicitud al backend fallo.',
+          payload?.error?.code || 'HTTP_ERROR',
+          error.status,
+          payload?.error ?? error.error
+        );
+      }
+
+      throw new ApiRequestError('No fue posible completar la solicitud.', 'UNEXPECTED_ERROR', 0, error);
+    }
   }
 }

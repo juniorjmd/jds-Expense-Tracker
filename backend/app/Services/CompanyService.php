@@ -33,7 +33,9 @@ final class CompanyService
 
     public function list(array $actor): array
     {
-        $this->assertSuperuser($actor);
+        $companies = ($actor['role'] ?? '') === 'superusuario'
+            ? $this->companies->all()
+            : $this->companies->assignedToAdmin((int) $actor['id']);
 
         return array_map(static function (array $row): array {
             return [
@@ -49,12 +51,12 @@ final class CompanyService
                 'usersCount' => (int) ($row['users_count'] ?? 0),
                 'createdAt' => (string) $row['created_at'],
             ];
-        }, $this->companies->all());
+        }, $companies);
     }
 
     public function overview(array $actor, int $companyId, ?string $month = null): array
     {
-        $this->assertSuperuser($actor);
+        $this->assertCanAccessCompany($actor, $companyId);
 
         $normalizedMonth = preg_match('/^\d{4}-\d{2}$/', (string) $month) === 1 ? (string) $month : date('Y-m');
         $company = $companyId > 0 ? $this->companies->findWithCounts($companyId) : null;
@@ -173,15 +175,20 @@ final class CompanyService
         $this->assertSuperuser($actor);
 
         $companyName = trim((string) ($payload['name'] ?? ''));
+        $existingAdminUserId = (int) ($payload['existingAdminUserId'] ?? 0);
         $adminName = trim((string) ($payload['adminName'] ?? ''));
         $adminEmail = strtolower(trim((string) ($payload['adminEmail'] ?? '')));
         $adminPassword = (string) ($payload['adminPassword'] ?? '');
 
-        if ($companyName === '' || $adminName === '' || $adminEmail === '' || $adminPassword === '') {
+        if ($companyName === '') {
+            throw new InvalidArgumentException('El nombre de la empresa es obligatorio.');
+        }
+
+        if ($existingAdminUserId < 1 && ($adminName === '' || $adminEmail === '' || $adminPassword === '')) {
             throw new InvalidArgumentException('Empresa y usuario administrador son obligatorios.');
         }
 
-        if ($this->users->emailExists($adminEmail)) {
+        if ($existingAdminUserId < 1 && $this->users->emailExists($adminEmail)) {
             throw new InvalidArgumentException('El email del administrador ya esta registrado.');
         }
 
@@ -202,14 +209,26 @@ final class CompanyService
             $this->subscriptions->createDefault((int) $company['id'], (int) $defaultPlan['id']);
             $this->settings->createDefault((int) $company['id'], $companyName);
 
-            $admin = $this->users->create([
-                'company_id' => (int) $company['id'],
-                'full_name' => $adminName,
-                'email' => $adminEmail,
-                'password_hash' => password_hash($adminPassword, PASSWORD_BCRYPT),
-                'role' => 'administrador',
-                'assigned_establishments' => [],
-            ]);
+            if ($existingAdminUserId > 0) {
+                $admin = $this->users->find($existingAdminUserId);
+                if ($admin === null || ($admin['role'] ?? '') !== 'administrador') {
+                    throw new InvalidArgumentException('El usuario seleccionado debe ser un administrador.');
+                }
+
+                $this->companies->assignAdmin((int) $company['id'], $existingAdminUserId);
+                $this->users->setPrimaryCompany($existingAdminUserId, (int) $company['id']);
+                $adminEmail = (string) ($admin['email'] ?? '');
+            } else {
+                $admin = $this->users->create([
+                    'company_id' => (int) $company['id'],
+                    'full_name' => $adminName,
+                    'email' => $adminEmail,
+                    'password_hash' => password_hash($adminPassword, PASSWORD_BCRYPT),
+                    'role' => 'administrador',
+                    'assigned_establishments' => [],
+                ]);
+                $this->companies->assignAdmin((int) $company['id'], (int) $admin['id']);
+            }
 
             $pdo->commit();
 
@@ -255,6 +274,17 @@ final class CompanyService
     {
         if (($actor['role'] ?? '') !== 'superusuario') {
             throw new InvalidArgumentException('Solo el superusuario puede administrar empresas.');
+        }
+    }
+
+    private function assertCanAccessCompany(array $actor, int $companyId): void
+    {
+        if (($actor['role'] ?? '') === 'superusuario') {
+            return;
+        }
+
+        if (($actor['role'] ?? '') !== 'administrador' || !$this->companies->isAdminAssigned($companyId, (int) $actor['id'])) {
+            throw new InvalidArgumentException('No tienes acceso a la empresa seleccionada.');
         }
     }
 }

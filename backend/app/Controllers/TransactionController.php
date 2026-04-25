@@ -35,6 +35,33 @@ final class TransactionController
         }
     }
 
+    public function update(Request $request): void
+    {
+        try {
+            Response::ok($this->service->update($this->currentUser->require($request), (int) $request->route('id', 0), $request->body()));
+        } catch (InvalidArgumentException $exception) {
+            Response::fail('VALIDATION_ERROR', $exception->getMessage(), 422);
+        }
+    }
+
+    public function storeMovement(Request $request): void
+    {
+        try {
+            Response::created($this->service->createMovement($this->currentUser->require($request), (int) $request->route('id', 0), $request->body()));
+        } catch (InvalidArgumentException $exception) {
+            Response::fail('VALIDATION_ERROR', $exception->getMessage(), 422);
+        }
+    }
+
+    public function updateMovement(Request $request): void
+    {
+        try {
+            Response::ok($this->service->updateMovement($this->currentUser->require($request), (string) $request->route('groupId', ''), $request->body()));
+        } catch (InvalidArgumentException $exception) {
+            Response::fail('VALIDATION_ERROR', $exception->getMessage(), 422);
+        }
+    }
+
     public function destroy(Request $request): void
     {
         $deleted = $this->service->delete($this->currentUser->require($request), (int) $request->route('id', 0));

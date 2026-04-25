@@ -23,4 +23,22 @@ final class AuthController
             Response::fail('AUTH_ERROR', $exception->getMessage(), 422);
         }
     }
+
+    public function changeSuperuserPassword(Request $request): void
+    {
+        try {
+            Response::ok($this->service->changeSuperuserPassword($request->body()));
+        } catch (InvalidArgumentException $exception) {
+            Response::fail('VALIDATION_ERROR', $exception->getMessage(), 422);
+        }
+    }
+
+    public function resetSuperuserPassword(Request $request): void
+    {
+        try {
+            Response::ok($this->service->resetSuperuserPassword($request->body()));
+        } catch (InvalidArgumentException $exception) {
+            Response::fail('VALIDATION_ERROR', $exception->getMessage(), 422);
+        }
+    }
 }

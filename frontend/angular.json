@@ -15,7 +15,7 @@
             "outputPath": "dist/expense-traker",
             "index": "src/index.html",
             "browser": "src/main.ts",
-            "baseHref": "/expense-tracker/",
+            "baseHref": "/",
             "polyfills": [
               "zone.js"
             ],
