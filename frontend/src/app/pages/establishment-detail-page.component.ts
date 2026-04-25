@@ -2,20 +2,18 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Category, CategoryScope, Establishment, ExpenseTemplate, Transaction } from '../models';
+import { Category, Establishment, ExpenseTemplate, Transaction } from '../models';
 import { ApiRequestError } from '../services/api.service';
 import { AuthService } from '../services/auth.service';
 import { StorageService } from '../services/storage.service';
 import { SummaryService } from '../services/summary.service';
-import { ModalShellComponent } from '../modalsComponent/modal-shell.component';
-
-type EntryMode = 'transaction' | 'movement';
-type TransactionKind = 'income' | 'expense';
+import { EntryCategoryRequest, EntryMode, EntryModalComponent, EntryModalPayload } from '../modalsController/entry-modal.component';
+import { ExpenseTemplateModalComponent, ExpenseTemplateModalPayload } from '../modalsController/expense-template-modal.component';
 
 @Component({
   selector: 'app-establishment-detail-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, ModalShellComponent],
+  imports: [CommonModule, FormsModule, RouterLink, EntryModalComponent, ExpenseTemplateModalComponent],
   template: `
     <div class="shell" *ngIf="establishment as current">
       <header class="hero">
@@ -104,112 +102,25 @@ type TransactionKind = 'income' | 'expense';
         <ng-template #noTransactions><p class="muted">No hay movimientos registrados.</p></ng-template>
       </section>
 
-      <app-modal-shell *ngIf="showEntryModal" width="860px" labelledBy="entry-modal-title" (closed)="closeEntryModal()">
-          <div class="panel-head modal-head">
-            <div>
-              <h2 id="entry-modal-title">{{ editingTransactionId ? (entryMode === 'movement' ? 'Editar movimiento' : 'Editar transaccion') : (entryMode === 'movement' ? 'Nuevo movimiento interno' : 'Nueva transaccion') }}</h2>
-              <p class="muted">
-                {{ entryMode === 'movement'
-                  ? 'El movimiento crea una salida en origen y un ingreso en destino sin afectar el total general de la empresa.'
-                  : 'Registra ingresos o gastos reales del establecimiento y actualiza su saldo.' }}
-              </p>
-            </div>
-            <button class="icon-btn" type="button" (click)="closeEntryModal()" aria-label="Cerrar">×</button>
-          </div>
+      <app-entry-modal
+        *ngIf="showEntryModal"
+        [mode]="entryMode"
+        [establishmentId]="establishmentId"
+        [transaction]="editingTransaction"
+        [availableCategories]="availableCategories"
+        [companyEstablishments]="companyEstablishments"
+        [errorMessage]="entryErrorMessage"
+        (categoryLoadRequested)="loadCategories($event)"
+        (saved)="saveEntry($event)"
+        (closed)="closeEntryModal()"
+      ></app-entry-modal>
 
-          <div class="form-grid">
-            <label *ngIf="entryMode === 'transaction'">
-              <span>Tipo</span>
-              <select [(ngModel)]="entryTransactionType" (ngModelChange)="onTransactionTypeChange()">
-                <option value="income">Ingreso</option>
-                <option value="expense">Gasto</option>
-              </select>
-            </label>
-
-            <label *ngIf="entryMode === 'movement'">
-              <span>Origen</span>
-              <select [(ngModel)]="entrySourceEstablishmentId" (ngModelChange)="onSourceEstablishmentChange()">
-                <option *ngFor="let item of companyEstablishments" [value]="item.id">{{ item.name }}</option>
-              </select>
-            </label>
-
-            <label *ngIf="entryMode === 'movement'">
-              <span>Destino</span>
-              <select [(ngModel)]="entryDestinationEstablishmentId">
-                <option value="">Seleccione destino</option>
-                <option *ngFor="let item of destinationOptions()" [value]="item.id">{{ item.name }}</option>
-              </select>
-            </label>
-
-            <label>
-              <span>Monto</span>
-              <input [(ngModel)]="entryAmount" type="number" min="1">
-            </label>
-
-            <label>
-              <span>Categoria existente</span>
-              <select [(ngModel)]="entryCategoryId" (ngModelChange)="onCategorySelectionChange()">
-                <option value="">Crear o usar nombre manual</option>
-                <option *ngFor="let item of availableCategories" [value]="item.id">
-                  {{ item.name }} · {{ item.scope }}
-                </option>
-              </select>
-            </label>
-
-            <label>
-              <span>{{ entryCategoryId ? 'Nombre de categoria seleccionada' : 'Nombre de categoria' }}</span>
-              <input [(ngModel)]="entryCategoryName" (ngModelChange)="onCategoryNameChange()" placeholder="Ej. Caja menor, traslado interno, ventas">
-            </label>
-
-            <label>
-              <span>Alcance de categoria nueva</span>
-              <select [(ngModel)]="entryCategoryScope" [disabled]="!!entryCategoryId">
-                <option value="ESTABLECIMIENTO">Del establecimiento</option>
-                <option value="EMPRESA">General de empresa</option>
-              </select>
-            </label>
-
-            <label>
-              <span>Fecha</span>
-              <input [(ngModel)]="entryDate" type="date">
-            </label>
-
-            <label class="full">
-              <span>Descripcion</span>
-              <textarea [(ngModel)]="entryDescription" rows="3"></textarea>
-            </label>
-          </div>
-
-          <p *ngIf="entryErrorMessage" class="feedback error">{{ entryErrorMessage }}</p>
-
-          <div class="actions">
-            <button class="btn" type="button" (click)="saveEntry()">{{ editingTransactionId ? 'Actualizar' : 'Guardar' }}</button>
-            <button class="btn ghost" type="button" (click)="closeEntryModal()">Cancelar</button>
-          </div>
-      </app-modal-shell>
-
-      <app-modal-shell *ngIf="showTemplateForm" width="760px" labelledBy="template-modal-title" (closed)="closeTemplateModal()">
-          <div class="panel-head modal-head">
-            <div>
-              <h2 id="template-modal-title">Nuevo gasto predeterminado</h2>
-              <p class="muted">Guarda un gasto recurrente sin perder de vista el historial del establecimiento.</p>
-            </div>
-            <button class="icon-btn" type="button" (click)="closeTemplateModal()" aria-label="Cerrar">×</button>
-          </div>
-
-          <div class="form-grid">
-            <label><span>Categoria</span><input [(ngModel)]="templateCategory"></label>
-            <label><span>Monto</span><input [(ngModel)]="templateAmount" type="number" min="1"></label>
-            <label class="full"><span>Descripcion</span><textarea [(ngModel)]="templateDescription" rows="3"></textarea></label>
-          </div>
-
-          <p *ngIf="templateErrorMessage" class="feedback error">{{ templateErrorMessage }}</p>
-
-          <div class="actions">
-            <button class="btn" type="button" (click)="addTemplate()">Guardar</button>
-            <button class="btn ghost" type="button" (click)="closeTemplateModal()">Cancelar</button>
-          </div>
-      </app-modal-shell>
+      <app-expense-template-modal
+        *ngIf="showTemplateForm"
+        [errorMessage]="templateErrorMessage"
+        (saved)="addTemplate($event)"
+        (closed)="closeTemplateModal()"
+      ></app-expense-template-modal>
     </div>
   `,
   styles: [`
@@ -268,21 +179,8 @@ export class EstablishmentDetailPageComponent implements OnInit {
   showTemplateForm = false;
   showEntryModal = false;
   entryMode: EntryMode = 'transaction';
-  editingTransactionId = '';
-  editingMovementGroupId = '';
-  entryTransactionType: TransactionKind = 'expense';
-  entrySourceEstablishmentId = '';
-  entryDestinationEstablishmentId = '';
-  entryAmount = 0;
-  entryCategoryId = '';
-  entryCategoryName = '';
-  entryCategoryScope: CategoryScope = 'ESTABLECIMIENTO';
-  entryDescription = '';
-  entryDate = new Date().toISOString().slice(0, 10);
+  editingTransaction: Transaction | null = null;
   entryErrorMessage = '';
-  templateCategory = '';
-  templateDescription = '';
-  templateAmount = 0;
   templateErrorMessage = '';
   successMessage = '';
   errorMessage = '';
@@ -329,48 +227,19 @@ export class EstablishmentDetailPageComponent implements OnInit {
   openTransactionModal(): void {
     this.resetEntryForm();
     this.entryMode = 'transaction';
-    this.entrySourceEstablishmentId = this.establishmentId;
-    void this.loadCategories();
     this.showEntryModal = true;
   }
 
   openMovementModal(): void {
     this.resetEntryForm();
     this.entryMode = 'movement';
-    this.entrySourceEstablishmentId = this.establishmentId;
-    this.entryCategoryScope = 'EMPRESA';
-    void this.loadCategories();
     this.showEntryModal = true;
   }
 
   async openEditModal(item: Transaction): Promise<void> {
     this.resetEntryForm();
-    this.editingTransactionId = item.id;
-    this.entryAmount = item.amount;
-    this.entryDescription = item.description;
-    this.entryDate = item.date.slice(0, 10);
-    this.entryCategoryId = item.categoryId ?? '';
-    this.entryCategoryName = item.category;
-
-    if (this.isMovement(item)) {
-      this.entryMode = 'movement';
-      this.editingMovementGroupId = item.movementGroupId ?? '';
-      if (item.type === 'SALIDA_POR_MOVIMIENTO') {
-        this.entrySourceEstablishmentId = item.establishmentId;
-        this.entryDestinationEstablishmentId = item.relatedEstablishmentId ?? '';
-      } else {
-        this.entrySourceEstablishmentId = item.relatedEstablishmentId ?? '';
-        this.entryDestinationEstablishmentId = item.establishmentId;
-      }
-      this.entryCategoryScope = 'EMPRESA';
-    } else {
-      this.entryMode = 'transaction';
-      this.entryTransactionType = item.type as TransactionKind;
-      this.entrySourceEstablishmentId = item.establishmentId;
-      this.entryCategoryScope = 'ESTABLECIMIENTO';
-    }
-
-    await this.loadCategories();
+    this.editingTransaction = item;
+    this.entryMode = this.isMovement(item) ? 'movement' : 'transaction';
     this.showEntryModal = true;
   }
 
@@ -386,28 +255,25 @@ export class EstablishmentDetailPageComponent implements OnInit {
 
   closeTemplateModal(): void {
     this.showTemplateForm = false;
-    this.templateCategory = '';
-    this.templateDescription = '';
-    this.templateAmount = 0;
     this.templateErrorMessage = '';
   }
 
-  async saveEntry(): Promise<void> {
+  async saveEntry(payload: EntryModalPayload): Promise<void> {
     if (!this.establishment) {
       return;
     }
 
-    if (!this.entryCategoryName.trim()) {
+    if (!payload.categoryName.trim()) {
       this.entryErrorMessage = 'VALIDATION_ERROR: La categoria es obligatoria.';
       return;
     }
 
-    if (this.entryAmount <= 0) {
+    if (payload.amount <= 0) {
       this.entryErrorMessage = 'VALIDATION_ERROR: El monto debe ser mayor a cero.';
       return;
     }
 
-    if (this.entryMode === 'movement' && (!this.entrySourceEstablishmentId || !this.entryDestinationEstablishmentId)) {
+    if (payload.mode === 'movement' && (!payload.sourceEstablishmentId || !payload.destinationEstablishmentId)) {
       this.entryErrorMessage = 'VALIDATION_ERROR: Debes seleccionar origen y destino.';
       return;
     }
@@ -417,42 +283,42 @@ export class EstablishmentDetailPageComponent implements OnInit {
     this.successMessage = '';
 
     try {
-      if (this.entryMode === 'movement') {
-        const payload = {
-          sourceEstablishmentId: this.entrySourceEstablishmentId,
-          destinationEstablishmentId: this.entryDestinationEstablishmentId,
-          amount: this.entryAmount,
-          categoryId: this.entryCategoryId || null,
-          category: this.entryCategoryName.trim(),
-          categoryScope: this.entryCategoryScope,
-          description: this.entryDescription.trim(),
-          date: this.entryDate,
+      if (payload.mode === 'movement') {
+        const movementPayload = {
+          sourceEstablishmentId: payload.sourceEstablishmentId,
+          destinationEstablishmentId: payload.destinationEstablishmentId,
+          amount: payload.amount,
+          categoryId: payload.categoryId || null,
+          category: payload.categoryName.trim(),
+          categoryScope: payload.categoryScope,
+          description: payload.description.trim(),
+          date: payload.date,
         };
 
-        if (this.editingMovementGroupId) {
-          await this.storage.updateMovement(this.editingMovementGroupId, payload);
+        if (payload.editingMovementGroupId) {
+          await this.storage.updateMovement(payload.editingMovementGroupId, movementPayload);
           this.successMessage = 'Movimiento actualizado correctamente.';
         } else {
-          await this.storage.saveMovement(payload);
+          await this.storage.saveMovement(movementPayload);
           this.successMessage = 'Movimiento creado correctamente.';
         }
       } else {
-        const payload = {
-          establishmentId: this.entrySourceEstablishmentId || this.establishment.id,
-          type: this.entryTransactionType,
-          amount: this.entryAmount,
-          categoryId: this.entryCategoryId || null,
-          category: this.entryCategoryName.trim(),
-          categoryScope: this.entryCategoryScope,
-          description: this.entryDescription.trim(),
-          date: this.entryDate,
+        const transactionPayload = {
+          establishmentId: payload.sourceEstablishmentId || this.establishment.id,
+          type: payload.transactionType,
+          amount: payload.amount,
+          categoryId: payload.categoryId || null,
+          category: payload.categoryName.trim(),
+          categoryScope: payload.categoryScope,
+          description: payload.description.trim(),
+          date: payload.date,
         };
 
-        if (this.editingTransactionId) {
-          await this.storage.updateTransaction(this.editingTransactionId, payload);
+        if (payload.editingTransactionId) {
+          await this.storage.updateTransaction(payload.editingTransactionId, transactionPayload);
           this.successMessage = 'Transaccion actualizada correctamente.';
         } else {
-          await this.storage.saveTransaction(payload);
+          await this.storage.saveTransaction(transactionPayload);
           this.successMessage = 'Transaccion creada correctamente.';
         }
       }
@@ -464,8 +330,8 @@ export class EstablishmentDetailPageComponent implements OnInit {
     }
   }
 
-  async addTemplate(): Promise<void> {
-    if (!this.establishment || !this.templateCategory.trim() || this.templateAmount <= 0) {
+  async addTemplate(payload: ExpenseTemplateModalPayload): Promise<void> {
+    if (!this.establishment || !payload.category.trim() || payload.amount <= 0) {
       this.templateErrorMessage = 'VALIDATION_ERROR: Categoria y monto son obligatorios.';
       return;
     }
@@ -473,9 +339,9 @@ export class EstablishmentDetailPageComponent implements OnInit {
     this.templateErrorMessage = '';
     await this.storage.saveExpenseTemplate({
       establishmentId: this.establishment.id,
-      category: this.templateCategory,
-      description: this.templateDescription,
-      amount: this.templateAmount,
+      category: payload.category,
+      description: payload.description,
+      amount: payload.amount,
     });
 
     this.closeTemplateModal();
@@ -501,59 +367,8 @@ export class EstablishmentDetailPageComponent implements OnInit {
     await this.refresh();
   }
 
-  async loadCategories(): Promise<void> {
-    const type = this.entryMode === 'movement' ? 'movement' : this.entryTransactionType;
-    const establishmentId = this.entrySourceEstablishmentId || this.establishmentId;
-    this.availableCategories = await this.storage.getCategories(type, establishmentId);
-
-    if (this.entryCategoryId) {
-      const selected = this.availableCategories.find((item) => item.id === this.entryCategoryId);
-      if (selected) {
-        this.entryCategoryName = selected.name;
-        this.entryCategoryScope = selected.scope;
-      }
-    }
-  }
-
-  onTransactionTypeChange(): void {
-    this.entryCategoryId = '';
-    this.entryCategoryName = '';
-    this.entryCategoryScope = 'ESTABLECIMIENTO';
-    void this.loadCategories();
-  }
-
-  onSourceEstablishmentChange(): void {
-    if (this.entryMode === 'movement' && this.entryDestinationEstablishmentId === this.entrySourceEstablishmentId) {
-      this.entryDestinationEstablishmentId = '';
-    }
-    this.entryCategoryId = '';
-    this.entryCategoryName = '';
-    void this.loadCategories();
-  }
-
-  onCategorySelectionChange(): void {
-    if (!this.entryCategoryId) {
-      return;
-    }
-
-    const selected = this.availableCategories.find((item) => item.id === this.entryCategoryId);
-    if (!selected) {
-      return;
-    }
-
-    this.entryCategoryName = selected.name;
-    this.entryCategoryScope = selected.scope;
-  }
-
-  onCategoryNameChange(): void {
-    const selected = this.availableCategories.find((item) => item.id === this.entryCategoryId);
-    if (selected && selected.name !== this.entryCategoryName) {
-      this.entryCategoryId = '';
-    }
-  }
-
-  destinationOptions(): Establishment[] {
-    return this.companyEstablishments.filter((item) => item.id !== this.entrySourceEstablishmentId);
+  async loadCategories(request: EntryCategoryRequest): Promise<void> {
+    this.availableCategories = await this.storage.getCategories(request.type, request.establishmentId);
   }
 
   isMovement(item: Transaction): boolean {
@@ -600,17 +415,7 @@ export class EstablishmentDetailPageComponent implements OnInit {
 
   private resetEntryForm(): void {
     this.entryMode = 'transaction';
-    this.editingTransactionId = '';
-    this.editingMovementGroupId = '';
-    this.entryTransactionType = 'expense';
-    this.entrySourceEstablishmentId = this.establishmentId;
-    this.entryDestinationEstablishmentId = '';
-    this.entryAmount = 0;
-    this.entryCategoryId = '';
-    this.entryCategoryName = '';
-    this.entryCategoryScope = 'ESTABLECIMIENTO';
-    this.entryDescription = '';
-    this.entryDate = new Date().toISOString().slice(0, 10);
+    this.editingTransaction = null;
     this.entryErrorMessage = '';
     this.availableCategories = [];
   }

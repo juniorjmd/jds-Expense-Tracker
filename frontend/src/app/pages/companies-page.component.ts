@@ -6,12 +6,13 @@ import { Company, User } from '../models';
 import { ApiRequestError } from '../services/api.service';
 import { AuthService } from '../services/auth.service';
 import { StorageService } from '../services/storage.service';
-import { ModalShellComponent } from '../modalsComponent/modal-shell.component';
+import { AdminUserDraft, AdminUserModalComponent } from '../modalsController/admin-user-modal.component';
+import { CompanyModalComponent, CompanyModalPayload } from '../modalsController/company-modal.component';
 
 @Component({
   selector: 'app-companies-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, ModalShellComponent],
+  imports: [CommonModule, FormsModule, RouterLink, AdminUserModalComponent, CompanyModalComponent],
   template: `
     <div class="shell" *ngIf="auth.can('manage-companies'); else blocked">
       <header class="topbar">
@@ -62,87 +63,25 @@ import { ModalShellComponent } from '../modalsComponent/modal-shell.component';
       <div class="shell"><section class="panel"><h1>Sin acceso</h1><p class="muted">Solo el superusuario puede administrar empresas.</p></section></div>
     </ng-template>
 
-      <app-modal-shell *ngIf="showAdminModal" width="560px" [elevated]="true" labelledBy="admin-modal-title" (closed)="closeAdminModal()">
-        <div class="modal-head">
-          <div>
-            <h2 id="admin-modal-title">Nuevo usuario administrador</h2>
-            <p class="muted">Este usuario se creara junto con la empresa y quedara asociado de inmediato.</p>
-          </div>
-          <button class="icon-btn" type="button" (click)="closeAdminModal()" aria-label="Cerrar">×</button>
-        </div>
+      <app-admin-user-modal
+        *ngIf="showAdminModal"
+        [draft]="adminDraft"
+        (applied)="applyAdminDraft($event)"
+        (closed)="closeAdminModal()"
+      ></app-admin-user-modal>
 
-        <div class="form-grid">
-          <label><span>Nombre</span><input [(ngModel)]="draftAdminName"></label>
-          <label><span>Email</span><input [(ngModel)]="draftAdminEmail" type="email"></label>
-          <label class="full"><span>Contrasena</span><input [(ngModel)]="draftAdminPassword" type="password"></label>
-        </div>
-
-        <div class="actions">
-          <button class="btn" type="button" (click)="applyAdminDraft()">Guardar usuario</button>
-          <button class="btn ghost" type="button" (click)="closeAdminModal()">Cancelar</button>
-        </div>
-      </app-modal-shell>
-
-      <app-modal-shell *ngIf="showCompanyModal" width="860px" labelledBy="company-modal-title" (closed)="closeCompanyModal()">
-          <div class="modal-head">
-            <div>
-              <h2 id="company-modal-title">Nueva empresa</h2>
-              <p class="muted">Crea la empresa sin salir del listado y define de inmediato su administrador inicial.</p>
-            </div>
-            <button class="icon-btn" type="button" (click)="closeCompanyModal()" aria-label="Cerrar">×</button>
-          </div>
-
-          <div class="form-grid">
-            <label><span>Empresa</span><input [(ngModel)]="name"></label>
-            <label><span>Descripcion</span><input [(ngModel)]="description"></label>
-            <div class="full admin-panel">
-              <div>
-                <span class="label-title">Usuario administrador</span>
-                <p class="muted">
-                  Puedes elegir un administrador ya creado o crearlo en este momento para dejarlo asociado desde el arranque.
-                </p>
-              </div>
-              <div class="actions">
-                <button class="btn ghost" type="button" (click)="openAdminModal()">
-                  {{ hasAdminDraft() ? 'Editar administrador nuevo' : 'Agregar administrador' }}
-                </button>
-              </div>
-              <div class="full selector-block">
-                <span class="selector-title">Administradores disponibles</span>
-                <p *ngIf="!adminCandidates.length" class="muted">No hay usuarios administradores disponibles todavia. Puedes crearlo ahora desde esta misma pantalla.</p>
-                <div *ngIf="adminCandidates.length" class="candidate-list">
-                  <button
-                    *ngFor="let item of adminCandidates"
-                    class="candidate-card"
-                    type="button"
-                    [class.selected]="item.id === selectedAdminUserId"
-                    (click)="selectExistingAdmin(item.id)"
-                  >
-                    <strong>{{ item.name }}</strong>
-                    <span>{{ item.email }}</span>
-                    <small>Administrador</small>
-                  </button>
-                </div>
-              </div>
-              <div *ngIf="selectedAdminUserId" class="admin-summary">
-                <strong>{{ selectedAdminLabel() }}</strong>
-                <small>Este usuario quedara asignado como administrador de la nueva empresa sin perder sus otras empresas.</small>
-              </div>
-              <div *ngIf="hasAdminDraft()" class="admin-summary">
-                <strong>{{ adminName }}</strong>
-                <span>{{ adminEmail }}</span>
-                <small>Administrador inicial listo para asociarse a la empresa.</small>
-              </div>
-            </div>
-          </div>
-
-          <p *ngIf="modalErrorMessage" class="feedback error">{{ modalErrorMessage }}</p>
-
-          <div class="actions">
-            <button class="btn" type="button" (click)="save()">Crear empresa</button>
-            <button class="btn ghost" type="button" (click)="closeCompanyModal()">Cancelar</button>
-          </div>
-      </app-modal-shell>
+      <app-company-modal
+        *ngIf="showCompanyModal"
+        [adminCandidates]="adminCandidates"
+        [adminName]="adminName"
+        [adminEmail]="adminEmail"
+        [adminPassword]="adminPassword"
+        [errorMessage]="modalErrorMessage"
+        (adminRequested)="openAdminModal()"
+        (existingAdminSelected)="clearAdminDraft()"
+        (saved)="save($event)"
+        (closed)="closeCompanyModal()"
+      ></app-company-modal>
   `,
   styles: [`
     .shell { padding:32px; display:grid; gap:24px; }
@@ -196,15 +135,10 @@ import { ModalShellComponent } from '../modalsComponent/modal-shell.component';
 export class CompaniesPageComponent implements OnInit {
   companies: Company[] = [];
   adminCandidates: User[] = [];
-  name = '';
-  description = '';
-  selectedAdminUserId = '';
   adminName = '';
   adminEmail = '';
   adminPassword = '';
-  draftAdminName = '';
-  draftAdminEmail = '';
-  draftAdminPassword = '';
+  adminDraft: AdminUserDraft = { name: '', email: '', password: '' };
   showAdminModal = false;
   showCompanyModal = false;
   errorMessage = '';
@@ -240,10 +174,6 @@ export class CompaniesPageComponent implements OnInit {
     }
   }
 
-  hasAdminDraft(): boolean {
-    return !!(this.adminName.trim() && this.adminEmail.trim() && this.adminPassword.trim());
-  }
-
   openCompanyModal(): void {
     this.resetCompanyForm();
     this.showCompanyModal = true;
@@ -255,9 +185,7 @@ export class CompaniesPageComponent implements OnInit {
   }
 
   openAdminModal(): void {
-    this.draftAdminName = this.adminName;
-    this.draftAdminEmail = this.adminEmail;
-    this.draftAdminPassword = this.adminPassword;
+    this.adminDraft = { name: this.adminName, email: this.adminEmail, password: this.adminPassword };
     this.showAdminModal = true;
   }
 
@@ -265,40 +193,28 @@ export class CompaniesPageComponent implements OnInit {
     this.showAdminModal = false;
   }
 
-  selectedAdminLabel(): string {
-    const admin = this.adminCandidates.find((item) => item.id === this.selectedAdminUserId);
-    return admin ? `${admin.name} · ${admin.email}` : '';
-  }
-
-  selectExistingAdmin(userId: string): void {
-    this.selectedAdminUserId = userId;
+  clearAdminDraft(): void {
     this.adminName = '';
     this.adminEmail = '';
     this.adminPassword = '';
-    this.draftAdminName = '';
-    this.draftAdminEmail = '';
-    this.draftAdminPassword = '';
+    this.adminDraft = { name: '', email: '', password: '' };
   }
 
-  applyAdminDraft(): void {
-    if (!this.draftAdminName.trim() || !this.draftAdminEmail.trim() || !this.draftAdminPassword.trim()) {
-      return;
-    }
-
-    this.adminName = this.draftAdminName.trim();
-    this.adminEmail = this.draftAdminEmail.trim().toLowerCase();
-    this.adminPassword = this.draftAdminPassword;
-    this.selectedAdminUserId = '';
+  applyAdminDraft(draft: AdminUserDraft): void {
+    this.adminName = draft.name;
+    this.adminEmail = draft.email;
+    this.adminPassword = draft.password;
+    this.adminDraft = draft;
     this.showAdminModal = false;
   }
 
-  async save(): Promise<void> {
-    if (!this.name.trim()) {
+  async save(payload: CompanyModalPayload): Promise<void> {
+    if (!payload.name.trim()) {
       this.modalErrorMessage = 'VALIDATION_ERROR: El nombre de la empresa es obligatorio.';
       return;
     }
 
-    if (!this.selectedAdminUserId && (!this.adminName.trim() || !this.adminEmail.trim() || !this.adminPassword.trim())) {
+    if (!payload.existingAdminUserId && (!payload.adminName?.trim() || !payload.adminEmail?.trim() || !payload.adminPassword?.trim())) {
       this.modalErrorMessage = 'VALIDATION_ERROR: Debes elegir un administrador existente o completar el nuevo administrador.';
       return;
     }
@@ -308,18 +224,18 @@ export class CompaniesPageComponent implements OnInit {
     this.successMessage = '';
 
     try {
-      await this.storage.saveCompany(this.selectedAdminUserId
+      await this.storage.saveCompany(payload.existingAdminUserId
         ? {
-            name: this.name,
-            description: this.description,
-            existingAdminUserId: this.selectedAdminUserId,
+            name: payload.name,
+            description: payload.description,
+            existingAdminUserId: payload.existingAdminUserId,
           }
         : {
-            name: this.name,
-            description: this.description,
-            adminName: this.adminName,
-            adminEmail: this.adminEmail,
-            adminPassword: this.adminPassword,
+            name: payload.name,
+            description: payload.description,
+            adminName: payload.adminName ?? '',
+            adminEmail: payload.adminEmail ?? '',
+            adminPassword: payload.adminPassword ?? '',
           });
 
       this.successMessage = 'Empresa creada correctamente.';
@@ -331,15 +247,10 @@ export class CompaniesPageComponent implements OnInit {
   }
 
   private resetCompanyForm(): void {
-    this.name = '';
-    this.description = '';
-    this.selectedAdminUserId = '';
     this.adminName = '';
     this.adminEmail = '';
     this.adminPassword = '';
-    this.draftAdminName = '';
-    this.draftAdminEmail = '';
-    this.draftAdminPassword = '';
+    this.adminDraft = { name: '', email: '', password: '' };
     this.showAdminModal = false;
     this.modalErrorMessage = '';
   }

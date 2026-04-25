@@ -2,16 +2,16 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { Company, Establishment, User, UserRole } from '../models';
+import { Company, Establishment, User } from '../models';
 import { ApiRequestError } from '../services/api.service';
 import { AuthService } from '../services/auth.service';
 import { StorageService } from '../services/storage.service';
-import { ModalShellComponent } from '../modalsComponent/modal-shell.component';
+import { UserModalComponent, UserModalPayload } from '../modalsController/user-modal.component';
 
 @Component({
   selector: 'app-users-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, ModalShellComponent],
+  imports: [CommonModule, FormsModule, RouterLink, UserModalComponent],
   template: `
     <div class="shell" *ngIf="auth.can('manage-users'); else blocked">
       <header class="topbar">
@@ -44,42 +44,17 @@ import { ModalShellComponent } from '../modalsComponent/modal-shell.component';
         </div>
       </section>
 
-      <app-modal-shell *ngIf="showModal" width="760px" labelledBy="user-modal-title" (closed)="closeModal()">
-          <div class="panel-head modal-head">
-            <div>
-              <h2 id="user-modal-title">{{ editingId ? 'Editar usuario' : 'Nuevo usuario' }}</h2>
-              <p class="muted" *ngIf="!editingId">La contrasena inicial se genera automaticamente y se envia al correo del usuario.</p>
-              <p class="muted" *ngIf="editingId">Actualiza los datos sin salir de la lista. La contrasena es opcional en edicion.</p>
-            </div>
-            <button class="icon-btn" type="button" (click)="closeModal()" aria-label="Cerrar">×</button>
-          </div>
-
-          <div class="form-grid">
-            <label><span>Nombre</span><input [(ngModel)]="name"></label>
-            <label><span>Email</span><input [(ngModel)]="email" type="email"></label>
-            <label *ngIf="auth.getCurrentUser()?.role === 'superusuario'"><span>Empresa</span><select [(ngModel)]="companyId" (ngModelChange)="filterEstablishmentsByCompany()"><option value="">Seleccione empresa</option><option *ngFor="let item of companies" [value]="item.id">{{ item.name }}</option></select></label>
-            <label><span>Rol</span><select [(ngModel)]="role"><option value="administrador">Administrador</option><option value="editor">Editor</option><option value="visualizador">Visualizador</option></select></label>
-            <label class="full" *ngIf="editingId">
-              <span>Nueva contrasena opcional</span>
-              <input [(ngModel)]="password" type="password" placeholder="Solo diligencia si deseas reemplazarla">
-            </label>
-            <label class="full" *ngIf="role !== 'administrador'">
-              <span>Establecimientos asignados</span>
-              <div class="chips">
-                <button class="chip" type="button" *ngFor="let item of filteredEstablishments" (click)="toggleEstablishment(item.id)" [class.active]="assigned.includes(item.id)">
-                  {{ item.name }}
-                </button>
-              </div>
-            </label>
-          </div>
-
-          <p *ngIf="modalErrorMessage" class="feedback error">{{ modalErrorMessage }}</p>
-
-          <div class="actions">
-            <button class="btn" type="button" (click)="saveUser()">{{ editingId ? 'Actualizar' : 'Crear y enviar acceso' }}</button>
-            <button class="btn ghost" type="button" (click)="closeModal()">Cancelar</button>
-          </div>
-      </app-modal-shell>
+      <app-user-modal
+        *ngIf="showModal"
+        [user]="selectedUser"
+        [companies]="companies"
+        [establishments]="establishments"
+        [currentUserRole]="auth.getCurrentUser()?.role"
+        [currentCompanyId]="auth.getCurrentUser()?.companyId || ''"
+        [errorMessage]="modalErrorMessage"
+        (saved)="saveUser($event)"
+        (closed)="closeModal()"
+      ></app-user-modal>
     </div>
 
     <ng-template #blocked>
@@ -118,14 +93,7 @@ export class UsersPageComponent implements OnInit {
   users: User[] = [];
   companies: Company[] = [];
   establishments: Establishment[] = [];
-  filteredEstablishments: Establishment[] = [];
-  editingId = '';
-  companyId = '';
-  name = '';
-  email = '';
-  password = '';
-  role: UserRole = 'visualizador';
-  assigned: string[] = [];
+  selectedUser: User | null = null;
   errorMessage = '';
   successMessage = '';
   modalErrorMessage = '';
@@ -150,27 +118,13 @@ export class UsersPageComponent implements OnInit {
         this.companies = await this.storage.getCompanies();
       }
       this.establishments = await this.storage.getEstablishments();
-      this.filterEstablishmentsByCompany();
     } catch (error) {
       this.errorMessage = this.describeError(error);
     }
   }
 
-  filterEstablishmentsByCompany(): void {
-    const currentUser = this.auth.getCurrentUser();
-    const activeCompanyId = currentUser?.role === 'superusuario' ? this.companyId : currentUser?.companyId || '';
-    this.filteredEstablishments = activeCompanyId
-      ? this.establishments.filter((item) => item.companyId === activeCompanyId)
-      : this.establishments;
-    this.assigned = this.assigned.filter((item) => this.filteredEstablishments.some((establishment) => establishment.id === item));
-  }
-
-  toggleEstablishment(id: string): void {
-    this.assigned = this.assigned.includes(id) ? this.assigned.filter((item) => item !== id) : [...this.assigned, id];
-  }
-
-  async saveUser(): Promise<void> {
-    if (!this.name.trim() || !this.email.trim()) {
+  async saveUser(payload: UserModalPayload): Promise<void> {
+    if (!payload.name.trim() || !payload.email.trim()) {
       this.modalErrorMessage = 'VALIDATION_ERROR: Nombre y email son obligatorios.';
       return;
     }
@@ -180,17 +134,9 @@ export class UsersPageComponent implements OnInit {
     this.successMessage = '';
 
     try {
-      await this.auth.saveUser({
-        id: this.editingId || undefined,
-        companyId: this.auth.getCurrentUser()?.role === 'superusuario' ? this.companyId : this.auth.getCurrentUser()?.companyId || undefined,
-        name: this.name,
-        email: this.email,
-        password: this.password || undefined,
-        role: this.role,
-        assignedEstablishments: this.assigned,
-      });
+      await this.auth.saveUser(payload);
 
-      this.successMessage = this.editingId
+      this.successMessage = payload.id
         ? 'Usuario actualizado correctamente.'
         : 'Usuario creado correctamente. La contrasena inicial fue enviada por correo.';
       await this.refresh();
@@ -201,7 +147,8 @@ export class UsersPageComponent implements OnInit {
   }
 
   openCreateModal(): void {
-    this.resetForm();
+    this.selectedUser = null;
+    this.modalErrorMessage = '';
     this.showModal = true;
   }
 
@@ -211,14 +158,7 @@ export class UsersPageComponent implements OnInit {
       return;
     }
 
-    this.editingId = item.id;
-    this.name = item.name;
-    this.email = item.email;
-    this.password = '';
-    this.companyId = item.companyId ?? '';
-    this.role = item.role;
-    this.assigned = [...item.assignedEstablishments];
-    this.filterEstablishmentsByCompany();
+    this.selectedUser = item;
     this.modalErrorMessage = '';
     this.showModal = true;
   }
@@ -237,13 +177,7 @@ export class UsersPageComponent implements OnInit {
   }
 
   resetForm(): void {
-    this.editingId = '';
-    this.companyId = '';
-    this.name = '';
-    this.email = '';
-    this.password = '';
-    this.role = 'visualizador';
-    this.assigned = [];
+    this.selectedUser = null;
     this.modalErrorMessage = '';
   }
 

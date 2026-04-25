@@ -6,12 +6,12 @@ import { Company, Establishment } from '../models';
 import { AuthService } from '../services/auth.service';
 import { StorageService } from '../services/storage.service';
 import { SummaryService } from '../services/summary.service';
-import { ModalShellComponent } from '../modalsComponent/modal-shell.component';
+import { EstablishmentModalComponent, EstablishmentModalPayload } from '../modalsController/establishment-modal.component';
 
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, ModalShellComponent],
+  imports: [CommonModule, FormsModule, RouterLink, EstablishmentModalComponent],
   template: `
     <div class="shell">
       <header class="topbar">
@@ -176,38 +176,13 @@ import { ModalShellComponent } from '../modalsComponent/modal-shell.component';
         </ng-template>
       </section>
 
-      <app-modal-shell *ngIf="showEstablishmentForm" width="720px" labelledBy="establishment-modal-title" (closed)="closeEstablishmentModal()">
-          <div class="panel-head modal-head">
-            <div>
-              <h2 id="establishment-modal-title">Nuevo establecimiento</h2>
-              <p class="muted">Crea el establecimiento sin perder el contexto del panel principal.</p>
-            </div>
-            <button class="icon-btn" type="button" (click)="closeEstablishmentModal()" aria-label="Cerrar">×</button>
-          </div>
-
-          <div class="form-grid">
-            <label>
-              <span>Nombre</span>
-              <input [(ngModel)]="establishmentName" placeholder="Ej. Sucursal Centro">
-            </label>
-            <label *ngIf="auth.getCurrentUser()?.role === 'superusuario'">
-              <span>Empresa</span>
-              <select [(ngModel)]="selectedCompanyId">
-                <option value="">Seleccione una empresa</option>
-                <option *ngFor="let item of companies" [value]="item.id">{{ item.name }}</option>
-              </select>
-            </label>
-            <label class="full">
-              <span>Descripcion</span>
-              <textarea [(ngModel)]="establishmentDescription" rows="3" placeholder="Describe el establecimiento"></textarea>
-            </label>
-          </div>
-
-          <div class="panel-actions">
-            <button class="btn" type="button" (click)="createEstablishment()">Guardar</button>
-            <button class="btn ghost" type="button" (click)="closeEstablishmentModal()">Cancelar</button>
-          </div>
-      </app-modal-shell>
+      <app-establishment-modal
+        *ngIf="showEstablishmentForm"
+        [companies]="companies"
+        [showCompanySelect]="auth.getCurrentUser()?.role === 'superusuario'"
+        (saved)="createEstablishment($event)"
+        (closed)="closeEstablishmentModal()"
+      ></app-establishment-modal>
     </div>
   `,
   styles: [`
@@ -259,9 +234,6 @@ export class DashboardPageComponent implements OnInit {
   activeCompanyId = '';
   activeCompanyName = '';
   showEstablishmentForm = false;
-  establishmentName = '';
-  establishmentDescription = '';
-  selectedCompanyId = '';
   summary = { month: new Date().toISOString().slice(0, 7), income: 0, expense: 0, balance: 0 };
 
   constructor(
@@ -310,9 +282,6 @@ export class DashboardPageComponent implements OnInit {
 
   closeEstablishmentModal(): void {
     this.showEstablishmentForm = false;
-    this.establishmentName = '';
-    this.establishmentDescription = '';
-    this.selectedCompanyId = '';
   }
 
   async selectCompany(companyId: string): Promise<void> {
@@ -321,21 +290,18 @@ export class DashboardPageComponent implements OnInit {
     await this.refresh();
   }
 
-  async createEstablishment(): Promise<void> {
-    if (!this.establishmentName.trim()) {
+  async createEstablishment(payload: EstablishmentModalPayload): Promise<void> {
+    if (!payload.name.trim()) {
       return;
     }
 
     const currentUser = this.auth.getCurrentUser();
-    const companyId = currentUser?.role === 'superusuario' ? this.selectedCompanyId : currentUser?.companyId || '';
+    const companyId = currentUser?.role === 'superusuario' ? payload.companyId : currentUser?.companyId || '';
     if (!companyId) {
       return;
     }
 
-    await this.storage.saveEstablishment({ companyId, name: this.establishmentName, description: this.establishmentDescription });
-    this.establishmentName = '';
-    this.establishmentDescription = '';
-    this.selectedCompanyId = '';
+    await this.storage.saveEstablishment({ companyId, name: payload.name, description: payload.description });
     this.showEstablishmentForm = false;
     await this.refresh();
   }

@@ -3,12 +3,12 @@ import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
-import { ModalShellComponent } from '../modalsComponent/modal-shell.component';
+import { LoginHelpModalComponent } from '../modalsController/login-help-modal.component';
 
 @Component({
   selector: 'app-login-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, ModalShellComponent],
+  imports: [CommonModule, FormsModule, LoginHelpModalComponent],
   template: `
     <div class="login-shell">
       <button
@@ -45,22 +45,7 @@ import { ModalShellComponent } from '../modalsComponent/modal-shell.component';
         <button class="btn" type="button" (click)="submit()">Entrar</button>
       </section>
 
-      <app-modal-shell *ngIf="showHelp" width="460px" labelledBy="login-help-title" (closed)="closeHelp()">
-        <div
-          id="login-help-dialog"
-          class="help-dialog"
-        >
-          <button class="help-close" type="button" (click)="closeHelp()" aria-label="Cerrar ayuda">×</button>
-          <div class="help-copy">
-            <strong id="login-help-title">Sobre la aplicacion</strong>
-            <p>Plataforma para administrar empresas, establecimientos y movimientos financieros en un entorno multiempresa.</p>
-          </div>
-          <div class="help-copy">
-            <strong>Funciones principales</strong>
-            <p>Incluye seguimiento operativo, control de accesos y paneles para el manejo diario de la operacion.</p>
-          </div>
-        </div>
-      </app-modal-shell>
+      <app-login-help-modal *ngIf="showHelp" (closed)="closeHelp()"></app-login-help-modal>
     </div>
   `,
   styles: [`

@@ -2,6 +2,8 @@ node_modules/
 dist/
 vendor/
 .env
+.deploy/ftp.local.env
+.deploy_v*/ftp.local.env
 .idea/
 .vscode/
 .DS_Store
